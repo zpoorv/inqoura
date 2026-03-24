@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -10,24 +8,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/colors';
 import {
-  ProductLookupError,
-  resolveProductByBarcode,
   type ProductSourceInfo,
-  type ResolvedProduct,
 } from '../services/productLookup';
 import {
   findHarmfulIngredients,
   isHarmfulIngredientSegment,
   splitIngredients,
 } from '../utils/healthScore';
-import type { RootStackParamList } from '../utils/navigation';
+import type { RootStackParamList } from '../navigation/types';
 import { analyzeProduct, type ProductMetric } from '../utils/productInsights';
 
 type ResultScreenProps = NativeStackScreenProps<RootStackParamList, 'Result'>;
-type ResultErrorState = 'network' | 'not_found' | 'service' | null;
 
 function getToneColor(tone: 'good' | 'neutral' | 'warning') {
   if (tone === 'good') {
@@ -67,68 +60,48 @@ function getOffScoreTone(grade?: string | null) {
   }
 }
 
+function getHealthScoreTheme(score: number | null) {
+  if (score === null) {
+    return {
+      accent: colors.textMuted,
+      background: colors.background,
+      label: 'Needs More Data',
+      progress: 0,
+      text: colors.text,
+    };
+  }
+
+  if (score >= 80) {
+    return {
+      accent: colors.success,
+      background: colors.successMuted,
+      label: 'Great Choice',
+      progress: score,
+      text: colors.success,
+    };
+  }
+
+  if (score >= 50) {
+    return {
+      accent: colors.warning,
+      background: colors.warningMuted,
+      label: 'Moderate',
+      progress: score,
+      text: colors.warning,
+    };
+  }
+
+  return {
+    accent: colors.danger,
+    background: colors.dangerMuted,
+    label: 'Needs Caution',
+    progress: score,
+    text: colors.danger,
+  };
+}
+
 export default function ResultScreen({ route }: ResultScreenProps) {
-  const { barcode, barcodeType } = route.params;
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [errorState, setErrorState] = useState<ResultErrorState>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [product, setProduct] = useState<ResolvedProduct | null>(null);
-  const [requestKey, setRequestKey] = useState(0);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadProduct = async () => {
-      try {
-        setIsLoading(true);
-        setErrorMessage(null);
-        setErrorState(null);
-
-        const response = await resolveProductByBarcode(barcode, barcodeType);
-
-        if (!isActive) {
-          return;
-        }
-
-        if (!response) {
-          setProduct(null);
-          setErrorState('not_found');
-          setErrorMessage(
-            'No product entry was found for this barcode yet. Try another scan or check later.'
-          );
-          return;
-        }
-
-        setProduct(response);
-      } catch (error) {
-        if (!isActive) {
-          return;
-        }
-
-        setProduct(null);
-
-        if (error instanceof ProductLookupError) {
-          setErrorState(error.kind);
-          setErrorMessage(error.message);
-        } else {
-          setErrorState('service');
-          setErrorMessage(
-            'Product data providers are not reachable right now. Tap Retry Lookup in a moment.'
-          );
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadProduct();
-
-    return () => {
-      isActive = false;
-    };
-  }, [barcode, barcodeType, requestKey]);
+  const { barcode, barcodeType, product } = route.params;
 
   const barcodeFormatLabel = barcodeType
     ? barcodeType.replace(/_/g, ' ').toUpperCase()
@@ -138,6 +111,7 @@ export default function ResultScreen({ route }: ResultScreenProps) {
     ? splitIngredients(product.ingredientsText)
     : ['Ingredient details will appear when source data is available.'];
   const insights = product ? analyzeProduct(product) : null;
+  const healthScoreTheme = getHealthScoreTheme(insights?.smartScore ?? null);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -151,49 +125,35 @@ export default function ResultScreen({ route }: ResultScreenProps) {
           {barcodeFormatLabel ? (
             <Text style={styles.statusText}>Format: {barcodeFormatLabel}</Text>
           ) : null}
-
-          {isLoading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.primary} size="small" />
-              <Text style={styles.statusText}>Loading product analysis...</Text>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.statusText}>
-                {errorMessage || 'Product data loaded and analyzed from available sources.'}
-              </Text>
-              {errorState === 'network' || errorState === 'service' ? (
-                <View style={styles.retryButtonWrapper}>
-                  <PrimaryButton
-                    label="Retry Lookup"
-                    onPress={() => setRequestKey((value) => value + 1)}
-                  />
-                </View>
-              ) : null}
-            </>
-          )}
+          <Text style={styles.statusText}>
+            Product data was fetched before this screen opened, so you can review
+            the result immediately.
+          </Text>
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.label}>Quick Take</Text>
+          <Text style={styles.label}>Health Score</Text>
 
           {insights ? (
             <>
-              <View style={styles.quickTakeRow}>
+              <View
+                style={[
+                  styles.healthScorePanel,
+                  { backgroundColor: healthScoreTheme.background },
+                ]}
+              >
                 <View
                   style={[
                     styles.scoreBadge,
                     {
                       backgroundColor:
                         insights.smartScore === null
+                          ? colors.surface
+                          : healthScoreTheme.accent,
+                      borderColor:
+                        insights.smartScore === null
                           ? colors.border
-                          : insights.smartScore >= 80
-                            ? colors.success
-                            : insights.smartScore >= 65
-                              ? colors.primary
-                              : insights.smartScore >= 45
-                                ? colors.warning
-                                : colors.danger,
+                          : healthScoreTheme.accent,
                     },
                   ]}
                 >
@@ -213,10 +173,41 @@ export default function ResultScreen({ route }: ResultScreenProps) {
                       : `${insights.smartScore}/100`}
                   </Text>
                 </View>
-                <View style={styles.quickTakeText}>
+                <View style={styles.healthScoreText}>
+                  <Text
+                    style={[
+                      styles.healthScoreLabel,
+                      { color: healthScoreTheme.text },
+                    ]}
+                  >
+                    {healthScoreTheme.label}
+                  </Text>
                   <Text style={styles.value}>{insights.verdict}</Text>
                   <Text style={styles.statusText}>{insights.summary}</Text>
                 </View>
+              </View>
+
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: healthScoreTheme.accent,
+                      width: `${healthScoreTheme.progress}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.scoreLegendRow}>
+                <Text style={[styles.scoreLegendText, { color: colors.success }]}>
+                  Green 80+
+                </Text>
+                <Text style={[styles.scoreLegendText, { color: colors.warning }]}>
+                  Yellow 50-79
+                </Text>
+                <Text style={[styles.scoreLegendText, { color: colors.danger }]}>
+                  Red &lt;50
+                </Text>
               </View>
 
               {insights.highlights.length > 0 ? (
@@ -474,6 +465,23 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontWeight: '700',
   },
+  healthScoreLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  healthScorePanel: {
+    alignItems: 'center',
+    borderRadius: 24,
+    flexDirection: 'row',
+    gap: 16,
+    padding: 18,
+  },
+  healthScoreText: {
+    flex: 1,
+    gap: 4,
+  },
   heroCard: {
     backgroundColor: colors.primaryMuted,
     borderRadius: 24,
@@ -547,14 +555,16 @@ const styles = StyleSheet.create({
     height: 180,
     width: '100%',
   },
-  quickTakeRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 16,
+  progressFill: {
+    borderRadius: 999,
+    height: '100%',
   },
-  quickTakeText: {
-    flex: 1,
-    gap: 4,
+  progressTrack: {
+    backgroundColor: colors.border,
+    borderRadius: 999,
+    height: 10,
+    overflow: 'hidden',
+    width: '100%',
   },
   retryButtonWrapper: {
     marginTop: 6,
@@ -567,12 +577,21 @@ const styles = StyleSheet.create({
   },
   scoreBadge: {
     alignItems: 'center',
+    borderWidth: 1,
     borderRadius: 999,
     justifyContent: 'center',
     minHeight: 64,
     minWidth: 110,
     paddingHorizontal: 18,
     paddingVertical: 10,
+  },
+  scoreLegendRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  scoreLegendText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   scoreRow: {
     alignItems: 'center',

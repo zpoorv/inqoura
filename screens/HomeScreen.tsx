@@ -1,152 +1,61 @@
-import { useState } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-import {
-  CameraView,
-  useCameraPermissions,
-  type BarcodeScanningResult,
-  type BarcodeType,
-} from 'expo-camera';
+import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/colors';
-import { normalizeBarcode } from '../utils/barcode';
-import type { RootStackParamList } from '../utils/navigation';
+import type { RootStackParamList } from '../navigation/types';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-// Keep the MVP focused on the most common retail barcode formats.
-const SUPPORTED_BARCODE_TYPES = [
-  'ean13',
-  'ean8',
-  'upc_a',
-  'upc_e',
-  'code128',
-] satisfies BarcodeType[];
+const HOME_FEATURES = [
+  'Live barcode scanning with Expo camera',
+  'Open Food Facts product lookup before navigation',
+  'Ingredient and nutrition analysis on the result screen',
+];
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
-  const [cameraPermission, requestPermission] = useCameraPermissions();
-  const [hasScanned, setHasScanned] = useState(false);
-  const [isScanningEnabled, setIsScanningEnabled] = useState(false);
   const insets = useSafeAreaInsets();
-
-  const handlePrimaryAction = async () => {
-    if (!cameraPermission?.granted) {
-      const response = await requestPermission();
-
-      if (!response.granted) {
-        return;
-      }
-    }
-
-    setHasScanned(false);
-    setIsScanningEnabled(true);
-  };
-
-  const handleBarcodeScanned = ({ data, type }: BarcodeScanningResult) => {
-    if (hasScanned) {
-      return;
-    }
-
-    // Guard against duplicate scan callbacks firing before navigation completes.
-    setHasScanned(true);
-    setIsScanningEnabled(false);
-
-    navigation.navigate('Result', {
-      barcode: normalizeBarcode(data),
-      barcodeType: type,
-    });
-  };
-
-  if (!cameraPermission) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
-      </SafeAreaView>
-    );
-  }
-
-  const hasPermission = cameraPermission.granted;
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
       <View style={styles.container}>
+        <View style={styles.backgroundGlow} />
+
         <View style={styles.content}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Scan a food product</Text>
+          <View style={styles.eyebrowChip}>
+            <Text style={styles.eyebrowText}>Open Food Facts Powered</Text>
+          </View>
+
+          <View style={styles.heroBlock}>
+            <Text style={styles.title}>Scan a food barcode and review it fast</Text>
             <Text style={styles.subtitle}>
-              Point your camera at the barcode to get ingredient flags,
-              nutrition clues, and a smarter product verdict.
+              Use the camera to scan a packaged product, fetch its catalog data,
+              and open a clear result page with ingredient, additive, and
+              nutrition signals.
             </Text>
           </View>
 
-          <View style={styles.scannerCard}>
-            {hasPermission ? (
-              <View style={styles.cameraContainer}>
-                <CameraView
-                  barcodeScannerSettings={{
-                    barcodeTypes: SUPPORTED_BARCODE_TYPES,
-                  }}
-                  facing="back"
-                  onBarcodeScanned={
-                    isScanningEnabled ? handleBarcodeScanned : undefined
-                  }
-                  style={styles.camera}
-                />
-
-                <View pointerEvents="none" style={styles.overlay}>
-                  <View style={styles.scanFrame} />
-                  <Text style={styles.overlayText}>
-                    {isScanningEnabled
-                      ? 'Looking for a barcode...'
-                      : 'Tap the button below to start scanning'}
-                  </Text>
-                </View>
+          <View style={styles.featureCard}>
+            {HOME_FEATURES.map((feature) => (
+              <View key={feature} style={styles.featureRow}>
+                <View style={styles.featureDot} />
+                <Text style={styles.featureText}>{feature}</Text>
               </View>
-            ) : (
-              <View style={styles.permissionFallback}>
-                <Text style={styles.permissionTitle}>Camera access needed</Text>
-                <Text style={styles.permissionText}>
-                  Allow camera access so the app can scan product barcodes.
-                </Text>
-              </View>
-            )}
+            ))}
           </View>
         </View>
 
         <View
           style={[
-            styles.bottomSection,
+            styles.footer,
             { paddingBottom: Math.max(insets.bottom + 12, 24) },
           ]}
         >
-          <View style={styles.buttonWrapper}>
-            <PrimaryButton
-              disabled={hasPermission && isScanningEnabled}
-              label={
-                hasPermission
-                  ? isScanningEnabled
-                    ? 'Scanning...'
-                    : 'Scan Barcode'
-                  : 'Allow Camera Access'
-              }
-              onPress={handlePrimaryAction}
-            />
-          </View>
-
-          <Text style={styles.footerText}>
-            The app combines barcode lookup, ingredient analysis, and
-            nutrition-based signals to help you make a faster decision.
-          </Text>
+          <PrimaryButton
+            label="Open Scanner"
+            onPress={() => navigation.navigate('Scanner')}
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -154,118 +63,88 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  bottomSection: {
-    alignItems: 'center',
-    gap: 16,
-    paddingTop: 20,
-    width: '100%',
-  },
-  buttonWrapper: {
-    maxWidth: 320,
-    width: '100%',
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraContainer: {
-    flex: 1,
+  backgroundGlow: {
+    backgroundColor: colors.primaryMuted,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    height: 240,
+    left: -24,
+    opacity: 0.55,
+    position: 'absolute',
+    right: -24,
+    top: -32,
   },
   container: {
-    alignItems: 'center',
     flex: 1,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 24,
   },
   content: {
-    alignItems: 'center',
-    flex: 1,
     gap: 24,
-    width: '100%',
   },
-  footerText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: 320,
-    textAlign: 'center',
+  eyebrowChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
-  header: {
-    alignItems: 'center',
-    gap: 8,
-    maxWidth: 360,
-    width: '100%',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    flex: 1,
-    justifyContent: 'center',
-  },
-  overlay: {
-    alignItems: 'center',
-    backgroundColor: colors.scanOverlay,
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  overlayText: {
-    color: colors.surface,
-    fontSize: 15,
-    fontWeight: '600',
-    marginTop: 18,
-    textAlign: 'center',
-  },
-  permissionFallback: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 10,
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-  },
-  permissionText: {
-    color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  permissionTitle: {
-    color: colors.text,
-    fontSize: 20,
+  eyebrowText: {
+    color: colors.primary,
+    fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  featureCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 28,
+    borderWidth: 1,
+    gap: 16,
+    padding: 22,
+  },
+  featureDot: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 10,
+    marginTop: 6,
+    width: 10,
+  },
+  featureRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  featureText: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  footer: {
+    width: '100%',
+  },
+  heroBlock: {
+    gap: 14,
+    paddingTop: 8,
   },
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
   },
-  scanFrame: {
-    borderColor: colors.surface,
-    borderRadius: 24,
-    borderWidth: 3,
-    height: 190,
-    width: '78%',
-  },
-  scannerCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 28,
-    borderWidth: 1,
-    elevation: 2,
-    flex: 1,
-    minHeight: 320,
-    maxWidth: 360,
-    overflow: 'hidden',
-    width: '100%',
-  },
   subtitle: {
     color: colors.textMuted,
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontSize: 17,
+    lineHeight: 25,
   },
   title: {
     color: colors.text,
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontSize: 36,
+    fontWeight: '800',
+    lineHeight: 42,
   },
 });
