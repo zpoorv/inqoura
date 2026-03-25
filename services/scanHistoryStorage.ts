@@ -1,5 +1,9 @@
+import {
+  DEFAULT_DIET_PROFILE_ID,
+  isDietProfileId,
+  type DietProfileId,
+} from '../constants/dietProfiles';
 import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
-
 import type { HealthScoreGrade } from '../constants/productHealthScore';
 import type { ResolvedProduct } from './productLookup';
 import {
@@ -16,6 +20,7 @@ export type ScanHistoryEntry = {
   gradeLabel: HealthScoreGrade | null;
   id: string;
   name: string;
+  profileId: DietProfileId;
   product: ResolvedProduct;
   riskLevel: ScanHistoryRiskLevel;
   riskSummary: string;
@@ -27,6 +32,7 @@ export type ScanHistoryEntry = {
 type SaveScanHistoryInput = {
   barcode: string;
   barcodeType?: string | null;
+  profileId?: DietProfileId;
   product: ResolvedProduct;
 };
 
@@ -41,7 +47,9 @@ function toHistoryEntry(
   input: SaveScanHistoryInput,
   existingEntry?: ScanHistoryEntry
 ): ScanHistoryEntry {
-  const snapshot = buildScanHistorySnapshot(input.product);
+  const profileId =
+    input.profileId || existingEntry?.profileId || DEFAULT_DIET_PROFILE_ID;
+  const snapshot = buildScanHistorySnapshot(input.product, profileId);
   const scannedAt = new Date().toISOString();
 
   return {
@@ -51,6 +59,7 @@ function toHistoryEntry(
     gradeLabel: snapshot.gradeLabel,
     id: existingEntry?.id || input.barcode,
     name: snapshot.name,
+    profileId: snapshot.profileId,
     product: input.product,
     riskLevel: snapshot.riskLevel,
     riskSummary: snapshot.riskSummary,
@@ -72,10 +81,22 @@ function isValidHistoryEntry(value: unknown): value is ScanHistoryEntry {
     typeof candidate.barcode === 'string' &&
     typeof candidate.name === 'string' &&
     typeof candidate.scannedAt === 'string' &&
+    (candidate.profileId === undefined ||
+      (typeof candidate.profileId === 'string' && isDietProfileId(candidate.profileId))) &&
     (typeof candidate.score === 'number' || candidate.score === null) &&
     typeof candidate.riskSummary === 'string' &&
     typeof candidate.product === 'object'
   );
+}
+
+function normalizeHistoryEntry(entry: ScanHistoryEntry): ScanHistoryEntry {
+  return {
+    ...entry,
+    profileId:
+      entry.profileId && isDietProfileId(entry.profileId)
+        ? entry.profileId
+        : DEFAULT_DIET_PROFILE_ID,
+  };
 }
 
 async function writeHistory(entries: ScanHistoryEntry[]) {
@@ -99,7 +120,9 @@ export async function loadScanHistory(): Promise<ScanHistoryEntry[]> {
       return [];
     }
 
-    return sortHistoryEntries(parsedValue.filter(isValidHistoryEntry));
+    return sortHistoryEntries(
+      parsedValue.filter(isValidHistoryEntry).map(normalizeHistoryEntry)
+    );
   } catch {
     return [];
   }

@@ -1,5 +1,11 @@
+import {
+  DEFAULT_DIET_PROFILE_ID,
+  type DietProfileId,
+} from '../constants/dietProfiles';
+import type { HealthScoreGrade } from '../constants/productHealthScore';
 import type { ResolvedProduct } from '../services/productLookup';
 import { formatProductName } from './productDisplay';
+import { applyDietProfile, getDietProfileDefinition } from './dietProfiles';
 import {
   findHarmfulIngredients,
 } from './healthScore';
@@ -7,7 +13,6 @@ import {
   scoreProductHealth,
   type ProductHealthScoreAdjustment,
 } from './productHealthScore';
-import type { HealthScoreGrade } from '../constants/productHealthScore';
 import { isLikelyFoodProduct } from './productType';
 
 export type ProductMetric = {
@@ -21,6 +26,9 @@ export type ProductInsights = {
   gradeLabel: HealthScoreGrade | null;
   highlights: string[];
   metrics: ProductMetric[];
+  profileId: DietProfileId;
+  profileLabel: string;
+  profileSummary: string | null;
   processingLabel: string | null;
   smartScore: number | null;
   summary: string;
@@ -205,13 +213,21 @@ function buildMetrics(product: ResolvedProduct): ProductMetric[] {
   return metrics;
 }
 
-export function analyzeProduct(product: ResolvedProduct): ProductInsights {
+export function analyzeProduct(
+  product: ResolvedProduct,
+  profileId: DietProfileId = DEFAULT_DIET_PROFILE_ID
+): ProductInsights {
+  const profile = getDietProfileDefinition(profileId);
+
   if (!isLikelyFoodProduct(product)) {
     return {
       cautions: ['This item does not look like an edible product'],
       gradeLabel: null,
       highlights: [],
       metrics: [],
+      profileId,
+      profileLabel: profile.label,
+      profileSummary: null,
       processingLabel: null,
       smartScore: null,
       summary: 'Health scoring is only shown for edible food and drink products.',
@@ -221,6 +237,7 @@ export function analyzeProduct(product: ResolvedProduct): ProductInsights {
 
   const harmfulMatches = findHarmfulIngredients(product.ingredientsText);
   const healthScore = scoreProductHealth(product);
+  const profileAssessment = applyDietProfile(product, healthScore, profileId);
   const processingLabel = getProcessingLabel(product.novaGroup);
   const sugarLevel = classifySugar(product.nutrition.sugar100g);
   const saltLevel = classifySalt(product.nutrition.salt100g);
@@ -290,14 +307,26 @@ export function analyzeProduct(product: ResolvedProduct): ProductInsights {
     highlights.push('Useful protein content');
   }
 
+  highlights.push(...profileAssessment.highlights);
+  cautions.push(...profileAssessment.warnings);
+
+  const uniqueHighlights = Array.from(new Set(highlights));
+  const uniqueCautions = Array.from(new Set(cautions));
+  const summary = [healthScore.explanation, profileAssessment.summary]
+    .filter(Boolean)
+    .join(' ');
+
   return {
-    cautions: Array.from(new Set(cautions)),
-    gradeLabel: healthScore.gradeLabel,
-    highlights: Array.from(new Set(highlights)),
+    cautions: uniqueCautions,
+    gradeLabel: profileAssessment.gradeLabel,
+    highlights: uniqueHighlights,
     metrics: buildMetrics(product),
+    profileId,
+    profileLabel: profileAssessment.profile.label,
+    profileSummary: profileAssessment.summary,
     processingLabel,
-    smartScore: healthScore.score,
-    summary: healthScore.explanation,
-    verdict: getVerdictFromGrade(healthScore.gradeLabel),
+    smartScore: profileAssessment.score,
+    summary,
+    verdict: getVerdictFromGrade(profileAssessment.gradeLabel),
   };
 }

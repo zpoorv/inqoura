@@ -18,10 +18,15 @@ import ViewShot from 'react-native-view-shot';
 import IngredientExplanationModal from '../components/IngredientExplanationModal';
 import ShareResultCard from '../components/ShareResultCard';
 import { colors } from '../constants/colors';
+import {
+  DEFAULT_DIET_PROFILE_ID,
+  type DietProfileId,
+} from '../constants/dietProfiles';
 import type { RootStackParamList } from '../navigation/types';
 import {
   type ProductSourceInfo,
 } from '../services/productLookup';
+import { loadDietProfile } from '../services/dietProfileStorage';
 import { saveScanToHistory } from '../services/scanHistoryStorage';
 import { getGradeTone } from '../utils/gradeTone';
 import {
@@ -143,11 +148,17 @@ function getHealthScoreTheme(score: number | null) {
 }
 
 export default function ResultScreen({ navigation, route }: ResultScreenProps) {
-  const { barcode, barcodeType, product } = route.params;
+  const { barcode, barcodeType, persistToHistory, product } = route.params;
   const shareCardRef = useRef<ViewShot | null>(null);
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [isSharing, setIsSharing] = useState(false);
+  const [hasResolvedProfile, setHasResolvedProfile] = useState(
+    Boolean(route.params.profileId)
+  );
+  const [selectedProfileId, setSelectedProfileId] = useState<DietProfileId>(
+    route.params.profileId || DEFAULT_DIET_PROFILE_ID
+  );
   const [selectedIngredient, setSelectedIngredient] =
     useState<HighlightedIngredient | null>(null);
   const displayProductName = formatProductName(product?.name);
@@ -182,12 +193,12 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         .filter(Boolean)
     )
   );
-  const insights = product ? analyzeProduct(product) : null;
+  const insights = product ? analyzeProduct(product, selectedProfileId) : null;
   const healthScoreTheme = getHealthScoreTheme(insights?.smartScore ?? null);
   const gradeTone = getGradeTone(insights?.gradeLabel);
   const selectedIngredientExplanation: IngredientExplanationLookup | null =
     selectedIngredient ? explainIngredient(selectedIngredient.ingredient) : null;
-  const shareableResult = buildShareableResultData(product);
+  const shareableResult = buildShareableResultData(product, selectedProfileId);
   const shareCardWidth = Math.min(windowWidth - 64, 360);
 
   useLayoutEffect(() => {
@@ -195,6 +206,35 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   }, [displayProductName, navigation]);
 
   useEffect(() => {
+    if (route.params.profileId) {
+      setSelectedProfileId(route.params.profileId);
+      setHasResolvedProfile(true);
+      return;
+    }
+
+    let isMounted = true;
+
+    const restoreProfile = async () => {
+      const savedProfileId = await loadDietProfile();
+
+      if (isMounted) {
+        setSelectedProfileId(savedProfileId);
+        setHasResolvedProfile(true);
+      }
+    };
+
+    void restoreProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [route.params.profileId]);
+
+  useEffect(() => {
+    if (persistToHistory === false || !hasResolvedProfile) {
+      return;
+    }
+
     let isMounted = true;
 
     const persistHistoryEntry = async () => {
@@ -202,6 +242,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         await saveScanToHistory({
           barcode,
           barcodeType,
+          profileId: selectedProfileId,
           product,
         });
       } catch (error) {
@@ -216,7 +257,14 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     return () => {
       isMounted = false;
     };
-  }, [barcode, barcodeType, product]);
+  }, [
+    barcode,
+    barcodeType,
+    hasResolvedProfile,
+    persistToHistory,
+    product,
+    selectedProfileId,
+  ]);
 
   const handleShareResult = async () => {
     if (!shareCardRef.current || !shareableResult || isSharing) {
@@ -283,6 +331,17 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>Health Score</Text>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Scoring Mode</Text>
+            <View style={styles.profileChip}>
+              <Text style={styles.profileChipText}>
+                {insights?.profileLabel || 'General'}
+              </Text>
+            </View>
+          </View>
+          {insights?.profileSummary ? (
+            <Text style={styles.statusText}>{insights.profileSummary}</Text>
+          ) : null}
 
           {insights && isFoodProduct ? (
             <>
@@ -806,6 +865,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  profileChip: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  profileChipText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  profileLabel: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  profileRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   productImage: {
     alignSelf: 'center',

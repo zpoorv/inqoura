@@ -1,3 +1,7 @@
+import {
+  DEFAULT_DIET_PROFILE_ID,
+  type DietProfileId,
+} from '../constants/dietProfiles';
 import type { ResolvedProduct } from '../services/productLookup';
 import { explainIngredient } from './ingredientExplanations';
 import { highlightIngredients } from './ingredientHighlighting';
@@ -18,13 +22,14 @@ function uniqueValues(values: Array<string | null | undefined>) {
 }
 
 export function buildShareableResultData(
-  product: ResolvedProduct
+  product: ResolvedProduct,
+  profileId: DietProfileId = DEFAULT_DIET_PROFILE_ID
 ): ShareableResultData | null {
   if (!isLikelyFoodProduct(product)) {
     return null;
   }
 
-  const insights = analyzeProduct(product);
+  const insights = analyzeProduct(product, profileId);
   const riskyIngredients = highlightIngredients(product.ingredientsText)
     .filter((ingredient) => ingredient.risk !== 'safe')
     .sort((left, right) => {

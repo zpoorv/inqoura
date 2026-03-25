@@ -51,7 +51,7 @@ function createKeywordPattern(keyword: string) {
   return new RegExp(`(?:^|\\b)${pattern}(?:\\b|$)`, 'i');
 }
 
-function getGradeLabel(score: number): HealthScoreGrade {
+export function getHealthScoreGradeLabel(score: number): HealthScoreGrade {
   return (
     HEALTH_SCORE_GRADE_BANDS.find((band) => score >= band.minScore)?.grade || 'F'
   );
@@ -274,7 +274,7 @@ export function scoreIngredientsHealth(
   return {
     adjustments,
     explanation: buildScoreExplanation(adjustments),
-    gradeLabel: getGradeLabel(score),
+    gradeLabel: getHealthScoreGradeLabel(score),
     recognizableIngredientCount,
     score,
     totalIngredientCount: ingredients.length,

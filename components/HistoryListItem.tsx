@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../constants/colors';
 import type { ScanHistoryEntry } from '../services/scanHistoryStorage';
+import { getDietProfileDefinition } from '../utils/dietProfiles';
 import { getGradeTone } from '../utils/gradeTone';
 import { formatProductName } from '../utils/productDisplay';
 
@@ -34,6 +35,7 @@ export default function HistoryListItem({
   selectionMode = false,
 }: HistoryListItemProps) {
   const gradeTone = getGradeTone(entry.gradeLabel);
+  const profile = getDietProfileDefinition(entry.profileId);
 
   return (
     <Pressable
@@ -63,7 +65,9 @@ export default function HistoryListItem({
         </View>
       </View>
 
-      <Text style={styles.metaText}>{entry.barcode}</Text>
+      <Text style={styles.metaText}>
+        {entry.barcode} • {profile.label}
+      </Text>
       <Text style={styles.summaryText}>{entry.riskSummary}</Text>
 
       <View style={styles.footerRow}>

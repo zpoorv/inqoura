@@ -1,72 +1,168 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import DietProfileModal from '../components/DietProfileModal';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/colors';
+import {
+  DEFAULT_DIET_PROFILE_ID,
+  DIET_PROFILE_DEFINITIONS,
+  type DietProfileId,
+} from '../constants/dietProfiles';
 import type { RootStackParamList } from '../navigation/types';
+import {
+  loadDietProfile,
+  loadDietProfileIntroSeen,
+  markDietProfileIntroSeen,
+  saveDietProfile,
+} from '../services/dietProfileStorage';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HOME_FEATURES = [
   'Live barcode scanning with Expo camera',
   'Open Food Facts product lookup before navigation',
-  'Ingredient and nutrition analysis on the result screen',
+  'Ingredient, nutrition, and profile-aware analysis on the result screen',
   'Saved scan history with search and quick reopen',
 ];
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const [selectedProfileId, setSelectedProfileId] = useState<DietProfileId>(
+    DEFAULT_DIET_PROFILE_ID
+  );
+  const [draftProfileId, setDraftProfileId] = useState<DietProfileId>(
+    DEFAULT_DIET_PROFILE_ID
+  );
+  const [isFirstLaunchProfileFlow, setIsFirstLaunchProfileFlow] = useState(false);
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+
+  const selectedProfile =
+    DIET_PROFILE_DEFINITIONS.find((profile) => profile.id === selectedProfileId) ||
+    DIET_PROFILE_DEFINITIONS[0];
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          accessibilityLabel="Open diet profile"
+          onPress={() => {
+            setDraftProfileId(selectedProfileId);
+            setIsFirstLaunchProfileFlow(false);
+            setIsProfileModalVisible(true);
+          }}
+          style={({ pressed }) => [
+            styles.headerProfileButton,
+            pressed && styles.headerProfileButtonPressed,
+          ]}
+        >
+          <Text style={styles.headerProfileButtonText}>Profile</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, selectedProfileId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreProfile = async () => {
+      const [savedProfileId, hasSeenIntro] = await Promise.all([
+        loadDietProfile(),
+        loadDietProfileIntroSeen(),
+      ]);
+
+      if (isMounted) {
+        setSelectedProfileId(savedProfileId);
+        setDraftProfileId(savedProfileId);
+        setIsFirstLaunchProfileFlow(!hasSeenIntro);
+        setIsProfileModalVisible(!hasSeenIntro);
+      }
+    };
+
+    void restoreProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleApplyProfile = async () => {
+    setSelectedProfileId(draftProfileId);
+    setIsProfileModalVisible(false);
+    setIsFirstLaunchProfileFlow(false);
+    await saveDietProfile(draftProfileId);
+    await markDietProfileIntroSeen();
+  };
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.backgroundGlow} />
 
-        <View style={styles.content}>
-          <View style={styles.eyebrowChip}>
-            <Text style={styles.eyebrowText}>Open Food Facts Powered</Text>
-          </View>
-
-          <View style={styles.heroBlock}>
-            <Text style={styles.title}>Scan a food barcode and review it fast</Text>
-            <Text style={styles.subtitle}>
-              Use the camera to scan a packaged product, fetch its catalog data,
-              and open a clear result page with ingredient, additive, and
-              nutrition signals.
-            </Text>
-          </View>
-
-          <View style={styles.featureCard}>
-            {HOME_FEATURES.map((feature) => (
-              <View key={feature} style={styles.featureRow}>
-                <View style={styles.featureDot} />
-                <Text style={styles.featureText}>{feature}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.footer,
-            { paddingBottom: Math.max(insets.bottom + 12, 24) },
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom + 28, 44) },
           ]}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.footerActions}>
-            <PrimaryButton
-              label="Open Scanner"
-              onPress={() => navigation.navigate('Scanner')}
-            />
-            <Pressable
-              onPress={() => navigation.navigate('History')}
-              style={styles.secondaryAction}
-            >
-              <Text style={styles.secondaryActionText}>View Scan History</Text>
-            </Pressable>
+          <View style={styles.content}>
+            <View style={styles.eyebrowChip}>
+              <Text style={styles.eyebrowText}>Open Food Facts Powered</Text>
+            </View>
+
+            <View style={styles.heroBlock}>
+              <Text style={styles.title}>Scan a food barcode and review it fast</Text>
+              <Text style={styles.subtitle}>
+                Use the camera to scan a packaged product, fetch its catalog data,
+                and open a clear result page with ingredient, additive, and
+                nutrition signals.
+              </Text>
+            </View>
+
+            <View style={styles.featureCard}>
+              {HOME_FEATURES.map((feature) => (
+                <View key={feature} style={styles.featureRow}>
+                  <View style={styles.featureDot} />
+                  <Text style={styles.featureText}>{feature}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.profileSummaryCard}>
+              <Text style={styles.profileSummaryLabel}>Current Diet Profile</Text>
+              <Text style={styles.profileSummaryTitle}>{selectedProfile.label}</Text>
+              <Text style={styles.profileSummaryText}>
+                {selectedProfile.description}
+              </Text>
+            </View>
+
+            <View style={styles.footerActions}>
+              <PrimaryButton
+                label="Open Scanner"
+                onPress={() =>
+                  navigation.navigate('Scanner', { profileId: selectedProfileId })
+                }
+              />
+              <Pressable
+                onPress={() => navigation.navigate('History')}
+                style={styles.secondaryAction}
+              >
+                <Text style={styles.secondaryActionText}>View Scan History</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </View>
+      <DietProfileModal
+        isFirstLaunch={isFirstLaunchProfileFlow}
+        onApply={() => void handleApplyProfile()}
+        onSelect={setDraftProfileId}
+        selectedProfileId={draftProfileId}
+        visible={isProfileModalVisible}
+      />
     </SafeAreaView>
   );
 }
@@ -85,7 +181,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: 24,
     paddingTop: 24,
   },
@@ -134,19 +229,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
-  footer: {
-    width: '100%',
-  },
   footerActions: {
     gap: 12,
+    marginTop: 4,
   },
   heroBlock: {
     gap: 14,
     paddingTop: 8,
   },
+  headerProfileButton: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  headerProfileButtonPressed: {
+    opacity: 0.86,
+  },
+  headerProfileButtonText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  profileSummaryCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    padding: 18,
+  },
+  profileSummaryLabel: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  profileSummaryText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  profileSummaryTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '700',
+  },
   safeArea: {
     backgroundColor: colors.background,
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   secondaryAction: {
     alignItems: 'center',

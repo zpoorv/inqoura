@@ -20,6 +20,7 @@ import {
   loadScanHistory,
   type ScanHistoryEntry,
 } from '../services/scanHistoryStorage';
+import { getDietProfileDefinition } from '../utils/dietProfiles';
 
 type HistoryScreenProps = NativeStackScreenProps<RootStackParamList, 'History'>;
 type SortOrder = 'newest' | 'oldest';
@@ -36,6 +37,7 @@ function matchesQuery(entry: ScanHistoryEntry, query: string) {
     entry.barcode,
     entry.riskSummary,
     entry.gradeLabel,
+    getDietProfileDefinition(entry.profileId).label,
   ]
     .join(' ')
     .toLowerCase();
@@ -228,6 +230,8 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
                   navigation.push('Result', {
                     barcode: item.barcode,
                     barcodeType: item.barcodeType,
+                    persistToHistory: false,
+                    profileId: item.profileId,
                     product: item.product,
                   });
                 }}

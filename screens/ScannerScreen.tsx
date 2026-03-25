@@ -16,11 +16,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import BarcodeScannerPanel from '../components/BarcodeScannerPanel';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/colors';
+import { DEFAULT_DIET_PROFILE_ID } from '../constants/dietProfiles';
 import {
   ProductLookupError,
   resolveProductByBarcode,
 } from '../services/productLookup';
-import { saveScanToHistory } from '../services/scanHistoryStorage';
 import type { RootStackParamList } from '../navigation/types';
 import { normalizeBarcode } from '../utils/barcode';
 
@@ -100,7 +100,7 @@ function getStatusContent(
   };
 }
 
-export default function ScannerScreen({ navigation }: ScannerScreenProps) {
+export default function ScannerScreen({ navigation, route }: ScannerScreenProps) {
   const [cameraPermission, requestPermission] = useCameraPermissions();
   const [cameraResetKey, setCameraResetKey] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -110,6 +110,8 @@ export default function ScannerScreen({ navigation }: ScannerScreenProps) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { height: windowHeight } = useWindowDimensions();
+  const selectedProfileId =
+    route.params?.profileId || DEFAULT_DIET_PROFILE_ID;
 
   useEffect(() => {
     if (!isFocused) {
@@ -144,19 +146,11 @@ export default function ScannerScreen({ navigation }: ScannerScreenProps) {
         return;
       }
 
-      try {
-        await saveScanToHistory({
-          barcode,
-          barcodeType,
-          product,
-        });
-      } catch {
-        // History persistence should not block the result flow.
-      }
-
       navigation.push('Result', {
         barcode,
         barcodeType,
+        persistToHistory: true,
+        profileId: selectedProfileId,
         product,
       });
     } catch (error) {
