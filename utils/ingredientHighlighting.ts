@@ -22,6 +22,8 @@ export type HighlightedIngredient = {
   match: IngredientRuleMatch | null;
 };
 
+const keywordPatternCache = new Map<string, RegExp>();
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -55,13 +57,22 @@ export function toIngredientList(input: IngredientInput): string[] {
 }
 
 function createKeywordPattern(keyword: string) {
+  const cachedPattern = keywordPatternCache.get(keyword);
+
+  if (cachedPattern) {
+    return cachedPattern;
+  }
+
   const normalizedKeyword = normalizeIngredientValue(keyword);
   const pattern = normalizedKeyword
     .split(' ')
     .map((part) => escapeRegExp(part))
     .join('\\s+');
 
-  return new RegExp(`(?:^|\\b)${pattern}(?:\\b|$)`, 'i');
+  const compiledPattern = new RegExp(`(?:^|\\b)${pattern}(?:\\b|$)`, 'i');
+  keywordPatternCache.set(keyword, compiledPattern);
+
+  return compiledPattern;
 }
 
 function findRuleMatch(

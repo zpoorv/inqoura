@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
+import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -32,11 +33,20 @@ export default function IngredientOcrScreen({
   route,
 }: IngredientOcrScreenProps) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCropEnabled, setIsCropEnabled] = useState(true);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const selectedProfileId = route.params?.profileId || DEFAULT_DIET_PROFILE_ID;
+
+  useEffect(() => {
+    if (!isFocused) {
+      // Clear the preview when this screen goes to the background so we do not
+      // keep a large decoded bitmap alive behind the result screen.
+      setPreviewUri(null);
+    }
+  }, [isFocused]);
 
   const handleAssetUri = async (imageUri: string) => {
     setPreviewUri(imageUri);
@@ -46,6 +56,7 @@ export default function IngredientOcrScreen({
     try {
       const ocrResult = await recognizeIngredientLabelImage(imageUri);
       const product = buildResolvedProductFromOcr(ocrResult);
+      setPreviewUri(null);
 
       navigation.push('Result', {
         barcode: 'OCR INGREDIENT SCAN',
@@ -78,7 +89,7 @@ export default function IngredientOcrScreen({
       aspect: [4, 3],
       cameraType: ImagePicker.CameraType.back,
       mediaTypes: ['images'],
-      quality: 1,
+      quality: 0.8,
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
@@ -98,7 +109,7 @@ export default function IngredientOcrScreen({
       allowsEditing: isCropEnabled,
       aspect: [4, 3],
       mediaTypes: ['images'],
-      quality: 1,
+      quality: 0.8,
       selectionLimit: 1,
     });
 

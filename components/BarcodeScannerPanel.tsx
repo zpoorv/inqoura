@@ -3,6 +3,7 @@ import {
   type BarcodeScanningResult,
   type BarcodeType,
 } from 'expo-camera';
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../constants/colors';
@@ -30,7 +31,7 @@ type BarcodeScannerPanelProps = {
   overlayLabel: string;
 };
 
-export default function BarcodeScannerPanel({
+function BarcodeScannerPanel({
   cameraKey,
   helperText,
   height,
@@ -41,11 +42,12 @@ export default function BarcodeScannerPanel({
   overlayLabel,
 }: BarcodeScannerPanelProps) {
   const frameHeight = Math.min(220, Math.max(164, Math.round(height * 0.52)));
+  const shouldRenderCamera = isFocused && isActive;
 
   return (
     <View style={[styles.scannerCard, { height }]}>
       <View style={styles.cameraContainer}>
-        {isFocused ? (
+        {shouldRenderCamera ? (
           <CameraView
             key={cameraKey}
             barcodeScannerSettings={{
@@ -53,7 +55,7 @@ export default function BarcodeScannerPanel({
             }}
             facing="back"
             onMountError={(event) => onCameraMountError?.(event.message)}
-            onBarcodeScanned={isActive ? onBarcodeScanned : undefined}
+            onBarcodeScanned={onBarcodeScanned}
             style={styles.camera}
           />
         ) : (
@@ -80,6 +82,8 @@ export default function BarcodeScannerPanel({
     </View>
   );
 }
+
+export default memo(BarcodeScannerPanel);
 
 const styles = StyleSheet.create({
   camera: {

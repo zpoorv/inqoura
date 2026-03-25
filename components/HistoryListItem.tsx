@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../constants/colors';
@@ -26,7 +27,7 @@ function formatTimestamp(value: string) {
   });
 }
 
-export default function HistoryListItem({
+function HistoryListItem({
   entry,
   isSelected = false,
   onDelete,
@@ -102,6 +103,8 @@ export default function HistoryListItem({
     </Pressable>
   );
 }
+
+export default memo(HistoryListItem);
 
 const styles = StyleSheet.create({
   card: {

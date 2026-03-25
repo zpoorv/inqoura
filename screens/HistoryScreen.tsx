@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -96,32 +96,74 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
     });
   }, [historyEntries, searchQuery, sortOrder]);
   const selectionMode = selectedEntryIds.length > 0;
+  const selectedEntryIdSet = useMemo(
+    () => new Set(selectedEntryIds),
+    [selectedEntryIds]
+  );
 
-  const toggleEntrySelection = (entryId: string) => {
+  const toggleEntrySelection = useCallback((entryId: string) => {
     setSelectedEntryIds((currentIds) =>
       currentIds.includes(entryId)
         ? currentIds.filter((id) => id !== entryId)
         : [...currentIds, entryId]
     );
-  };
+  }, []);
 
-  const handleDeleteEntries = async (entryIds: string[]) => {
+  const handleDeleteEntries = useCallback(async (entryIds: string[]) => {
     const nextEntries = await deleteScanHistoryEntries(entryIds);
 
     setHistoryEntries(nextEntries);
     setSelectedEntryIds((currentIds) =>
       currentIds.filter((id) => !entryIds.includes(id))
     );
-  };
+  }, []);
 
-  const handleToggleSelectAll = () => {
+  const handleToggleSelectAll = useCallback(() => {
     if (selectedEntryIds.length === visibleEntries.length) {
       setSelectedEntryIds([]);
       return;
     }
 
     setSelectedEntryIds(visibleEntries.map((entry) => entry.id));
-  };
+  }, [selectedEntryIds.length, visibleEntries]);
+
+  const handleOpenEntry = useCallback(
+    (entry: ScanHistoryEntry) => {
+      if (selectionMode) {
+        toggleEntrySelection(entry.id);
+        return;
+      }
+
+      navigation.push('Result', {
+        barcode: entry.barcode,
+        barcodeType: entry.barcodeType,
+        persistToHistory: false,
+        profileId: entry.profileId,
+        product: entry.product,
+      });
+    },
+    [navigation, selectionMode, toggleEntrySelection]
+  );
+
+  const renderHistoryItem = useCallback(
+    ({ item }: { item: ScanHistoryEntry }) => (
+      <HistoryListItem
+        entry={item}
+        isSelected={selectedEntryIdSet.has(item.id)}
+        onDelete={() => void handleDeleteEntries([item.id])}
+        onLongPress={() => toggleEntrySelection(item.id)}
+        onPress={() => handleOpenEntry(item)}
+        selectionMode={selectionMode}
+      />
+    ),
+    [
+      handleDeleteEntries,
+      handleOpenEntry,
+      selectedEntryIdSet,
+      selectionMode,
+      toggleEntrySelection,
+    ]
+  );
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
@@ -214,31 +256,14 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           <FlatList
             contentContainerStyle={styles.listContent}
             data={visibleEntries}
+            initialNumToRender={8}
             keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <HistoryListItem
-                entry={item}
-                isSelected={selectedEntryIds.includes(item.id)}
-                onDelete={() => handleDeleteEntries([item.id])}
-                onLongPress={() => toggleEntrySelection(item.id)}
-                onPress={() => {
-                  if (selectionMode) {
-                    toggleEntrySelection(item.id);
-                    return;
-                  }
-
-                  navigation.push('Result', {
-                    barcode: item.barcode,
-                    barcodeType: item.barcodeType,
-                    persistToHistory: false,
-                    profileId: item.profileId,
-                    product: item.product,
-                  });
-                }}
-                selectionMode={selectionMode}
-              />
-            )}
+            maxToRenderPerBatch={8}
+            removeClippedSubviews
+            renderItem={renderHistoryItem}
             showsVerticalScrollIndicator={false}
+            updateCellsBatchingPeriod={60}
+            windowSize={5}
           />
         ) : (
           <View style={styles.stateCard}>

@@ -33,6 +33,9 @@ export type ProductHealthScore = {
   totalIngredientCount: number;
 };
 
+const keywordPatternCache = new Map<string, RegExp>();
+const regexPatternCache = new Map<string, RegExp>();
+
 function clamp(value: number, minValue: number, maxValue: number) {
   return Math.max(minValue, Math.min(maxValue, value));
 }
@@ -42,13 +45,35 @@ function escapeRegExp(value: string) {
 }
 
 function createKeywordPattern(keyword: string) {
+  const cachedPattern = keywordPatternCache.get(keyword);
+
+  if (cachedPattern) {
+    return cachedPattern;
+  }
+
   const normalizedKeyword = normalizeIngredientValue(keyword);
   const pattern = normalizedKeyword
     .split(' ')
     .map((part) => escapeRegExp(part))
     .join('\\s+');
 
-  return new RegExp(`(?:^|\\b)${pattern}(?:\\b|$)`, 'i');
+  const compiledPattern = new RegExp(`(?:^|\\b)${pattern}(?:\\b|$)`, 'i');
+  keywordPatternCache.set(keyword, compiledPattern);
+
+  return compiledPattern;
+}
+
+function createCachedRegex(pattern: string) {
+  const cachedPattern = regexPatternCache.get(pattern);
+
+  if (cachedPattern) {
+    return cachedPattern;
+  }
+
+  const compiledPattern = new RegExp(pattern, 'i');
+  regexPatternCache.set(pattern, compiledPattern);
+
+  return compiledPattern;
 }
 
 export function getHealthScoreGradeLabel(score: number): HealthScoreGrade {
@@ -180,7 +205,7 @@ function getRuleMatchCount(
       createKeywordPattern(keyword).test(ingredient)
     );
     const regexMatch = ruleGroup.regexPatterns?.some((pattern) =>
-      new RegExp(pattern, 'i').test(ingredient)
+      createCachedRegex(pattern).test(ingredient)
     );
 
     if (keywordMatch || regexMatch) {

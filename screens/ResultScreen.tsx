@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Sharing from 'expo-sharing';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -160,8 +160,8 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const shareCardRef = useRef<ViewShot | null>(null);
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [isShareCaptureMounted, setIsShareCaptureMounted] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const [isShareCardImageReady, setIsShareCardImageReady] = useState(false);
   const [hasResolvedProfile, setHasResolvedProfile] = useState(
     Boolean(route.params.profileId)
   );
@@ -170,8 +170,11 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   );
   const [selectedIngredient, setSelectedIngredient] =
     useState<HighlightedIngredient | null>(null);
-  const displayProductName = formatProductName(product?.name);
-  const isFoodProduct = isLikelyFoodProduct(product);
+  const displayProductName = useMemo(
+    () => formatProductName(product?.name),
+    [product?.name]
+  );
+  const isFoodProduct = useMemo(() => isLikelyFoodProduct(product), [product]);
 
   const barcodeFormatLabel = barcodeType
     ? barcodeType.replace(/_/g, ' ').toUpperCase()
@@ -184,47 +187,71 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     resultSource === 'ingredient-ocr'
       ? 'This result comes from OCR text extracted from a photographed ingredient label, then analyzed with the same ingredient scoring pipeline.'
       : 'Product data was fetched before this screen opened, so you can review the result immediately.';
-  const highlightedIngredients = highlightIngredients(product?.ingredientsText);
-  const explainedIngredients = highlightedIngredients.map((ingredient) => {
-    const explanationLookup = explainIngredient(ingredient.ingredient);
+  const ingredientAnalysis = useMemo(() => {
+    const highlightedIngredients = highlightIngredients(product?.ingredientsText);
+    const explainedIngredients = highlightedIngredients.map((ingredient) => {
+      const explanationLookup = explainIngredient(ingredient.ingredient);
+
+      return {
+        ...ingredient,
+        explanationLookup,
+        displayName: explanationLookup.explanation?.name || ingredient.ingredient,
+      };
+    });
 
     return {
-      ...ingredient,
-      explanationLookup,
-      displayName: explanationLookup.explanation?.name || ingredient.ingredient,
+      cautionIngredients: Array.from(
+        new Set(
+          highlightedIngredients
+            .filter((ingredient) => ingredient.risk === 'caution')
+            .map((ingredient) => ingredient.match?.label)
+            .filter(Boolean)
+        )
+      ),
+      explainedIngredients,
+      highRiskIngredients: Array.from(
+        new Set(
+          highlightedIngredients
+            .filter((ingredient) => ingredient.risk === 'high-risk')
+            .map((ingredient) => ingredient.match?.label)
+            .filter(Boolean)
+        )
+      ),
+      highlightedIngredients,
     };
-  });
-  const highRiskIngredients = Array.from(
-    new Set(
-      highlightedIngredients
-        .filter((ingredient) => ingredient.risk === 'high-risk')
-        .map((ingredient) => ingredient.match?.label)
-        .filter(Boolean)
-    )
+  }, [product?.ingredientsText]);
+  const insights = useMemo(
+    () => (product ? analyzeProduct(product, selectedProfileId) : null),
+    [product, selectedProfileId]
   );
-  const cautionIngredients = Array.from(
-    new Set(
-      highlightedIngredients
-        .filter((ingredient) => ingredient.risk === 'caution')
-        .map((ingredient) => ingredient.match?.label)
-        .filter(Boolean)
-    )
+  const alternativeSuggestions = useMemo(
+    () => getAlternativeProductSuggestions(product, selectedProfileId),
+    [product, selectedProfileId]
   );
-  const insights = product ? analyzeProduct(product, selectedProfileId) : null;
-  const alternativeSuggestions = getAlternativeProductSuggestions(
-    product,
-    selectedProfileId
+  const healthScoreTheme = useMemo(
+    () => getHealthScoreTheme(insights?.smartScore ?? null),
+    [insights?.smartScore]
   );
-  const healthScoreTheme = getHealthScoreTheme(insights?.smartScore ?? null);
-  const gradeTone = getGradeTone(insights?.gradeLabel);
+  const gradeTone = useMemo(
+    () => getGradeTone(insights?.gradeLabel),
+    [insights?.gradeLabel]
+  );
   const selectedIngredientExplanation: IngredientExplanationLookup | null =
-    selectedIngredient ? explainIngredient(selectedIngredient.ingredient) : null;
-  const shareableResult = buildShareableResultData(product, selectedProfileId);
-  const shareCardWidth = Math.min(windowWidth - 64, 360);
-
-  useEffect(() => {
-    setIsShareCardImageReady(!shareableResult?.imageUrl);
-  }, [shareableResult?.imageUrl]);
+    useMemo(
+      () =>
+        selectedIngredient
+          ? explainIngredient(selectedIngredient.ingredient)
+          : null,
+      [selectedIngredient]
+    );
+  const shareableResult = useMemo(
+    () => buildShareableResultData(product, selectedProfileId),
+    [product, selectedProfileId]
+  );
+  const shareCardWidth = useMemo(
+    () => Math.min(windowWidth - 64, 360),
+    [windowWidth]
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: displayProductName });
@@ -292,19 +319,25 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   ]);
 
   const handleShareResult = async () => {
-    if (!shareCardRef.current || !shareableResult || isSharing) {
+    if (!shareableResult || isSharing) {
       return;
     }
 
     setIsSharing(true);
+    setIsShareCaptureMounted(true);
 
     try {
-      if (shareableResult.imageUrl && !isShareCardImageReady) {
+      // Keep the off-screen capture surface unmounted until the user shares so
+      // we do not hold a second large product image in memory during normal browsing.
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      if (shareableResult.imageUrl) {
         await Image.prefetch(shareableResult.imageUrl);
         await new Promise((resolve) => setTimeout(resolve, 250));
       }
 
-      const imageUri = await shareCardRef.current.capture?.();
+      const imageUri = await shareCardRef.current?.capture?.();
       const shareMessage = buildShareableResultCaption(shareableResult);
 
       if (imageUri && (await Sharing.isAvailableAsync())) {
@@ -325,6 +358,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         console.warn('Failed to share result card', error);
       }
     } finally {
+      setIsShareCaptureMounted(false);
       setIsSharing(false);
     }
   };
@@ -335,7 +369,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {shareableResult ? (
+        {shareableResult && isShareCaptureMounted ? (
           <View style={styles.hiddenShareCapture}>
             <ViewShot
               options={{ fileName: `scan-result-${barcode}`, format: 'png', quality: 1 }}
@@ -344,7 +378,6 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             >
               <ShareResultCard
                 data={shareableResult}
-                onImageLoadEnd={() => setIsShareCardImageReady(true)}
               />
             </ViewShot>
           </View>
@@ -482,6 +515,8 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           {product?.imageUrl ? (
             <Image
               source={{ uri: product.imageUrl }}
+              // This image can be large on Android, so keep it out of the
+              // share tree and decode it only once in the visible layout.
               style={styles.productImage}
               resizeMode="contain"
             />
@@ -525,10 +560,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>Ingredients</Text>
-          {explainedIngredients.length > 0 ? (
+          {ingredientAnalysis.explainedIngredients.length > 0 ? (
             <>
               <View style={styles.ingredientWrap}>
-                {explainedIngredients.map((ingredient) => (
+                {ingredientAnalysis.explainedIngredients.map((ingredient) => (
                   <Pressable
                     key={ingredient.id}
                     accessibilityHint="Shows a short explanation for this ingredient"
@@ -580,15 +615,15 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             </Text>
           )}
 
-          {highRiskIngredients.length > 0 ? (
+          {ingredientAnalysis.highRiskIngredients.length > 0 ? (
             <Text style={styles.highRiskText}>
-              High-risk: {highRiskIngredients.join(', ')}
+              High-risk: {ingredientAnalysis.highRiskIngredients.join(', ')}
             </Text>
           ) : null}
 
-          {cautionIngredients.length > 0 ? (
+          {ingredientAnalysis.cautionIngredients.length > 0 ? (
             <Text style={styles.cautionText}>
-              Caution: {cautionIngredients.join(', ')}
+              Caution: {ingredientAnalysis.cautionIngredients.join(', ')}
             </Text>
           ) : product?.ingredientsText ? (
             <Text style={styles.safeText}>
@@ -719,7 +754,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   );
 }
 
-function MetricChip({ metric }: { metric: ProductMetric }) {
+const MetricChip = memo(function MetricChip({ metric }: { metric: ProductMetric }) {
   return (
     <View
       style={[
@@ -733,7 +768,7 @@ function MetricChip({ metric }: { metric: ProductMetric }) {
       </Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   barcodeText: {

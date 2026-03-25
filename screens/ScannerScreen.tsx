@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  type AppStateStatus,
   useWindowDimensions,
 } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
@@ -104,6 +106,7 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   const [cameraPermission, requestPermission] = useCameraPermissions();
   const [cameraResetKey, setCameraResetKey] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isAppActive, setIsAppActive] = useState(AppState.currentState === 'active');
   const [isLookupInFlight, setIsLookupInFlight] = useState(false);
   const [lastScan, setLastScan] = useState<LastScan | null>(null);
   const [manualBarcodeInput, setManualBarcodeInput] = useState('');
@@ -127,6 +130,19 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     setManualEntryError(null);
     setScannerState('ready');
   }, [isFocused]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextState: AppStateStatus) => {
+        setIsAppActive(nextState === 'active');
+      }
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   const lookupProduct = async (
     barcode: string,
@@ -240,6 +256,8 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   const scannerHeight =
     windowHeight < 700 ? 330 : windowHeight < 780 ? 360 : 400;
   const cameraKey = `scanner-${cameraResetKey}-${isFocused ? 'focused' : 'idle'}`;
+  const shouldRenderLiveCamera =
+    hasPermission && isFocused && isAppActive && scannerState === 'ready' && !isLookupInFlight;
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
@@ -270,8 +288,10 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
                 cameraKey={cameraKey}
                 helperText={getHelperText(scannerState)}
                 height={scannerHeight}
-                isActive={isFocused && scannerState === 'ready' && !isLookupInFlight}
-                isFocused={isFocused}
+                // Unmount the camera when the screen is paused or backgrounded so
+                // Android can reclaim camera and preview memory immediately.
+                isActive={shouldRenderLiveCamera}
+                isFocused={isFocused && isAppActive}
                 onCameraMountError={handleCameraMountError}
                 onBarcodeScanned={handleBarcodeScanned}
                 overlayLabel={getOverlayLabel(scannerState)}
