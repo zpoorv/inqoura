@@ -119,58 +119,68 @@ npx expo run:android
 ```text
 .
 |-- App.tsx
-|-- components/
-|   |-- BarcodeScannerPanel.tsx
-|   |-- DietProfileModal.tsx
-|   |-- HistoryListItem.tsx
-|   |-- HistoryListItemSkeleton.tsx
-|   |-- IngredientExplanationModal.tsx
-|   |-- ManualBarcodeEntry.tsx
-|   |-- PrimaryButton.tsx
-|   |-- ProductSuggestionsCard.tsx
-|   |-- ResultCardSkeleton.tsx
-|   `-- ShareResultCard.tsx
-|-- constants/
-|   |-- api.ts
-|   |-- colors.ts
-|   |-- dietProfiles.ts
-|   |-- harmfulIngredients.ts
-|   |-- ingredientExplanations.ts
-|   `-- productHealthScore.ts
-|-- navigation/
-|   |-- RootNavigator.tsx
-|   `-- types.ts
-|-- screens/
-|   |-- HistoryScreen.tsx
-|   |-- HomeScreen.tsx
-|   |-- IngredientOcrScreen.tsx
-|   |-- ResultScreen.tsx
-|   `-- ScannerScreen.tsx
-|-- services/
-|   |-- barcodeLookupCache.ts
-|   |-- dietProfileStorage.ts
-|   |-- http.ts
-|   |-- ingredientLabelOcr.ts
-|   |-- openFoodFacts.ts
-|   |-- productLookup.ts
-|   `-- scanHistoryStorage.ts
-|-- types/
-|   `-- async-storage.d.ts
-`-- utils/
-    |-- barcode.ts
-    |-- dietProfiles.ts
-    |-- gradeTone.ts
-    |-- healthScore.ts
-    |-- ingredientExplanations.ts
-    |-- ingredientHighlighting.ts
-    |-- ocrResolvedProduct.ts
-    |-- productDisplay.ts
-    |-- productHealthScore.ts
-    |-- productInsights.ts
-    |-- productSuggestions.ts
-    |-- resultAnalysis.ts
-    |-- scanHistory.ts
-    `-- shareableResult.ts
+|-- index.ts
+|-- src/
+|   |-- App.tsx
+|   |-- components/
+|   |   |-- BarcodeScannerPanel.tsx
+|   |   |-- DietProfileModal.tsx
+|   |   |-- HistoryListItem.tsx
+|   |   |-- HistoryListItemSkeleton.tsx
+|   |   |-- IngredientExplanationModal.tsx
+|   |   |-- ManualBarcodeEntry.tsx
+|   |   |-- PrimaryButton.tsx
+|   |   |-- ProductSuggestionsCard.tsx
+|   |   |-- ResultCardSkeleton.tsx
+|   |   `-- ShareResultCard.tsx
+|   |-- constants/
+|   |   |-- api.ts
+|   |   |-- colors.ts
+|   |   |-- dietProfiles.ts
+|   |   |-- harmfulIngredients.ts
+|   |   |-- ingredientExplanations.ts
+|   |   `-- productHealthScore.ts
+|   |-- navigation/
+|   |   |-- RootNavigator.tsx
+|   |   `-- types.ts
+|   |-- screens/
+|   |   |-- HistoryScreen.tsx
+|   |   |-- HomeScreen.tsx
+|   |   |-- IngredientOcrScreen.tsx
+|   |   |-- ResultScreen.tsx
+|   |   `-- ScannerScreen.tsx
+|   |-- services/
+|   |   |-- barcodeLookupCache.ts
+|   |   |-- dietProfileStorage.ts
+|   |   |-- http.ts
+|   |   |-- ingredientLabelOcr.ts
+|   |   |-- openFoodFacts.ts
+|   |   |-- productLookup.ts
+|   |   `-- scanHistoryStorage.ts
+|   |-- store/
+|   |   |-- index.ts
+|   |   `-- profileSessionStore.ts
+|   |-- types/
+|   |   |-- async-storage.d.ts
+|   |   |-- product.ts
+|   |   `-- scanner.ts
+|   `-- utils/
+|       |-- barcode.ts
+|       |-- dietProfiles.ts
+|       |-- gradeTone.ts
+|       |-- healthScore.ts
+|       |-- ingredientExplanations.ts
+|       |-- ingredientHighlighting.ts
+|       |-- ocrResolvedProduct.ts
+|       |-- productDisplay.ts
+|       |-- productHealthScore.ts
+|       |-- productInsights.ts
+|       |-- productName.ts
+|       |-- productSuggestions.ts
+|       |-- productType.ts
+|       |-- resultAnalysis.ts
+|       |-- scanHistory.ts
+|       `-- shareableResult.ts
 ```
 
 ## Notes
@@ -178,4 +188,6 @@ npx expo run:android
 - Product lookup currently uses Open Food Facts only.
 - Ingredient explanations use local mock data, but the lookup layer is structured so a server or AI source can replace it later.
 - OCR runs behind a dedicated service so the implementation can be swapped later.
-- Storage code is kept separate from UI code in `services/`.
+- Storage and API work live in `src/services/`, while shared contracts live in `src/types/`.
+- The lightweight in-memory session state lives in `src/store/` and avoids Redux.
+- `App.tsx` at the project root is only a thin wrapper that forwards to `src/App.tsx`.
