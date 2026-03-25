@@ -13,10 +13,9 @@ import {
   type ProductSourceInfo,
 } from '../services/productLookup';
 import {
-  findHarmfulIngredients,
-  isHarmfulIngredientSegment,
-  splitIngredients,
-} from '../utils/healthScore';
+  highlightIngredients,
+  type HighlightedIngredient,
+} from '../utils/ingredientHighlighting';
 import type { RootStackParamList } from '../navigation/types';
 import { analyzeProduct, type ProductMetric } from '../utils/productInsights';
 
@@ -32,6 +31,17 @@ function getToneColor(tone: 'good' | 'neutral' | 'warning') {
   }
 
   return colors.textMuted;
+}
+
+function getIngredientToneColor(risk: HighlightedIngredient['risk']) {
+  switch (risk) {
+    case 'high-risk':
+      return colors.danger;
+    case 'caution':
+      return colors.warning;
+    default:
+      return colors.success;
+  }
 }
 
 function getSourceTone(status: ProductSourceInfo['status']) {
@@ -106,10 +116,23 @@ export default function ResultScreen({ route }: ResultScreenProps) {
   const barcodeFormatLabel = barcodeType
     ? barcodeType.replace(/_/g, ' ').toUpperCase()
     : null;
-  const harmfulIngredients = findHarmfulIngredients(product?.ingredientsText);
-  const ingredientSegments = product?.ingredientsText
-    ? splitIngredients(product.ingredientsText)
-    : ['Ingredient details will appear when source data is available.'];
+  const highlightedIngredients = highlightIngredients(product?.ingredientsText);
+  const highRiskIngredients = Array.from(
+    new Set(
+      highlightedIngredients
+        .filter((ingredient) => ingredient.risk === 'high-risk')
+        .map((ingredient) => ingredient.match?.label)
+        .filter(Boolean)
+    )
+  );
+  const cautionIngredients = Array.from(
+    new Set(
+      highlightedIngredients
+        .filter((ingredient) => ingredient.risk === 'caution')
+        .map((ingredient) => ingredient.match?.label)
+        .filter(Boolean)
+    )
+  );
   const insights = product ? analyzeProduct(product) : null;
   const healthScoreTheme = getHealthScoreTheme(insights?.smartScore ?? null);
 
@@ -223,7 +246,7 @@ export default function ResultScreen({ route }: ResultScreenProps) {
               {insights.cautions.length > 0 ? (
                 <View style={styles.messageGroup}>
                   {insights.cautions.slice(0, 3).map((caution) => (
-                    <Text key={caution} style={styles.warningText}>
+                    <Text key={caution} style={styles.cautionText}>
                       • {caution}
                     </Text>
                   ))}
@@ -286,39 +309,49 @@ export default function ResultScreen({ route }: ResultScreenProps) {
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>Ingredients</Text>
-          <Text style={styles.bodyText}>
-            {ingredientSegments.map((ingredient, index) => (
-              <Text
-                key={`${ingredient}-${index}`}
-                style={
-                  isHarmfulIngredientSegment(ingredient)
-                    ? styles.harmfulIngredientText
-                    : undefined
-                }
-              >
-                {ingredient}
-                {index < ingredientSegments.length - 1 ? ', ' : ''}
-              </Text>
-            ))}
-          </Text>
-
-          {harmfulIngredients.length > 0 ? (
-            <Text style={styles.warningText}>
-              Flagged ingredients:{' '}
-              {harmfulIngredients.map((ingredient) => ingredient.label).join(', ')}
-            </Text>
-          ) : product?.ingredientsText ? (
-            <Text style={styles.goodText}>
-              No tracked harmful ingredients were detected in the available ingredient list.
+          {highlightedIngredients.length > 0 ? (
+            <Text style={styles.bodyText}>
+              {highlightedIngredients.map((ingredient, index) => (
+                <Text
+                  key={ingredient.id}
+                  style={{
+                    color: getIngredientToneColor(ingredient.risk),
+                    fontWeight: ingredient.risk === 'safe' ? '600' : '700',
+                  }}
+                >
+                  {ingredient.ingredient}
+                  {index < highlightedIngredients.length - 1 ? ', ' : ''}
+                </Text>
+              ))}
             </Text>
           ) : (
             <Text style={styles.statusText}>
-              Ingredient-level highlighting will appear when source data provides an ingredient list.
+              Ingredient details will appear when source data is available.
+            </Text>
+          )}
+
+          {highRiskIngredients.length > 0 ? (
+            <Text style={styles.highRiskText}>
+              High-risk: {highRiskIngredients.join(', ')}
+            </Text>
+          ) : null}
+
+          {cautionIngredients.length > 0 ? (
+            <Text style={styles.cautionText}>
+              Caution: {cautionIngredients.join(', ')}
+            </Text>
+          ) : product?.ingredientsText ? (
+            <Text style={styles.safeText}>
+              Current rule set marks the listed ingredients as safe.
+            </Text>
+          ) : (
+            <Text style={styles.statusText}>
+              Ingredient risk highlighting will appear when source data provides an ingredient list.
             </Text>
           )}
 
           {product?.allergens.length ? (
-            <Text style={styles.warningText}>
+            <Text style={styles.highRiskText}>
               Allergens: {product.allergens.join(', ')}
             </Text>
           ) : null}
@@ -440,6 +473,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
   },
+  cautionText: {
+    color: colors.warning,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
   contentContainer: {
     gap: 16,
     padding: 24,
@@ -460,10 +499,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     textAlign: 'center',
-  },
-  harmfulIngredientText: {
-    color: colors.danger,
-    fontWeight: '700',
   },
   healthScoreLabel: {
     fontSize: 13,
@@ -575,6 +610,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
   },
+  safeText: {
+    color: colors.success,
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 21,
+  },
   scoreBadge: {
     alignItems: 'center',
     borderWidth: 1,
@@ -650,7 +691,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 32,
   },
-  warningText: {
+  highRiskText: {
     color: colors.danger,
     fontSize: 14,
     fontWeight: '600',

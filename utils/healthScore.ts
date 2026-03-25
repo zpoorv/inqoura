@@ -1,7 +1,7 @@
 import {
-  harmfulIngredientRules,
-  type HarmfulIngredientRule,
-} from '../constants/harmfulIngredients';
+  highlightIngredients,
+  toIngredientList,
+} from './ingredientHighlighting';
 
 export type HarmfulIngredientMatch = {
   id: string;
@@ -10,35 +10,8 @@ export type HarmfulIngredientMatch = {
   penalty: number;
 };
 
-function normalizeIngredientValue(value: string) {
-  return value.toLowerCase().replace(/[()%.]/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function findRuleMatch(
-  normalizedValue: string,
-  rule: HarmfulIngredientRule
-): HarmfulIngredientMatch | null {
-  const matchedKeyword = rule.keywords.find((keyword) =>
-    normalizedValue.includes(normalizeIngredientValue(keyword))
-  );
-
-  if (!matchedKeyword) {
-    return null;
-  }
-
-  return {
-    id: rule.id,
-    keyword: matchedKeyword,
-    label: rule.label,
-    penalty: rule.penalty,
-  };
-}
-
 export function splitIngredients(ingredientsText: string): string[] {
-  return ingredientsText
-    .split(',')
-    .map((ingredient) => ingredient.trim())
-    .filter(Boolean);
+  return toIngredientList(ingredientsText);
 }
 
 export function findHarmfulIngredients(
@@ -49,17 +22,16 @@ export function findHarmfulIngredients(
   }
 
   const uniqueMatches = new Map<string, HarmfulIngredientMatch>();
+  const highlightedIngredients = highlightIngredients(ingredientsText);
 
-  // Deduplicate rule hits so one ingredient repeated in the label only counts once.
-  for (const segment of splitIngredients(ingredientsText)) {
-    const normalizedSegment = normalizeIngredientValue(segment);
-
-    for (const rule of harmfulIngredientRules) {
-      const match = findRuleMatch(normalizedSegment, rule);
-
-      if (match && !uniqueMatches.has(match.id)) {
-        uniqueMatches.set(match.id, match);
-      }
+  for (const ingredient of highlightedIngredients) {
+    if (ingredient.match && !uniqueMatches.has(ingredient.match.id)) {
+      uniqueMatches.set(ingredient.match.id, {
+        id: ingredient.match.id,
+        keyword: ingredient.match.keyword,
+        label: ingredient.match.label,
+        penalty: ingredient.match.penalty,
+      });
     }
   }
 
@@ -67,7 +39,9 @@ export function findHarmfulIngredients(
 }
 
 export function isHarmfulIngredientSegment(segment: string): boolean {
-  return findHarmfulIngredients(segment).length > 0;
+  return highlightIngredients([segment]).some(
+    (ingredient) => ingredient.risk !== 'safe'
+  );
 }
 
 export function calculateHealthScore(
