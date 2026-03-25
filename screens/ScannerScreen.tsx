@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -32,6 +32,8 @@ type LastScan = {
   barcode: string;
   barcodeType?: string | null;
 };
+
+const DUPLICATE_SCAN_WINDOW_MS = 2000;
 
 function getOverlayLabel(scannerState: ScannerState) {
   switch (scannerState) {
@@ -112,6 +114,8 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   const [manualBarcodeInput, setManualBarcodeInput] = useState('');
   const [manualEntryError, setManualEntryError] = useState<string | null>(null);
   const [scannerState, setScannerState] = useState<ScannerState>('ready');
+  const activeLookupRef = useRef(false);
+  const recentScanRef = useRef<{ barcode: string; scannedAt: number } | null>(null);
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { height: windowHeight } = useWindowDimensions();
@@ -129,6 +133,8 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     setLastScan(null);
     setManualEntryError(null);
     setScannerState('ready');
+    activeLookupRef.current = false;
+    recentScanRef.current = null;
   }, [isFocused]);
 
   useEffect(() => {
@@ -148,6 +154,7 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     barcode: string,
     barcodeType?: string | null
   ) => {
+    activeLookupRef.current = true;
     setErrorMessage(null);
     setManualEntryError(null);
     setIsLookupInFlight(true);
@@ -189,23 +196,42 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
         'Product data providers are not reachable right now. Please try again in a moment.'
       );
     } finally {
+      activeLookupRef.current = false;
+
       if (navigation.isFocused()) {
         setIsLookupInFlight(false);
       }
     }
   };
 
+  const shouldSuppressDuplicateScan = (barcode: string) => {
+    const recentScan = recentScanRef.current;
+
+    if (!recentScan) {
+      return false;
+    }
+
+    return (
+      recentScan.barcode === barcode &&
+      Date.now() - recentScan.scannedAt < DUPLICATE_SCAN_WINDOW_MS
+    );
+  };
+
   const handleBarcodeScanned = ({ data, type }: BarcodeScanningResult) => {
-    if (isLookupInFlight || scannerState !== 'ready') {
+    if (activeLookupRef.current || scannerState !== 'ready') {
       return;
     }
 
     const barcode = normalizeBarcode(data);
 
-    if (!barcode) {
+    if (!barcode || shouldSuppressDuplicateScan(barcode)) {
       return;
     }
 
+    recentScanRef.current = {
+      barcode,
+      scannedAt: Date.now(),
+    };
     void lookupProduct(barcode, type);
   };
 
@@ -215,10 +241,12 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     setCameraResetKey((value) => value + 1);
     setLastScan(null);
     setScannerState('ready');
+    activeLookupRef.current = false;
+    recentScanRef.current = null;
   };
 
   const handleManualLookup = () => {
-    if (isLookupInFlight) {
+    if (activeLookupRef.current) {
       return;
     }
 
@@ -229,6 +257,10 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
       return;
     }
 
+    recentScanRef.current = {
+      barcode,
+      scannedAt: Date.now(),
+    };
     void lookupProduct(barcode, null);
   };
 

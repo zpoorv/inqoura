@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Sharing from 'expo-sharing';
+import { InteractionManager } from 'react-native';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
@@ -17,6 +18,7 @@ import ViewShot from 'react-native-view-shot';
 
 import IngredientExplanationModal from '../components/IngredientExplanationModal';
 import ProductSuggestionsCard from '../components/ProductSuggestionsCard';
+import ResultCardSkeleton from '../components/ResultCardSkeleton';
 import ShareResultCard from '../components/ShareResultCard';
 import { colors } from '../constants/colors';
 import {
@@ -31,21 +33,20 @@ import { loadDietProfile } from '../services/dietProfileStorage';
 import { saveScanToHistory } from '../services/scanHistoryStorage';
 import { getGradeTone } from '../utils/gradeTone';
 import {
-  explainIngredient,
   type IngredientExplanationLookup,
 } from '../utils/ingredientExplanations';
 import {
-  highlightIngredients,
   type HighlightedIngredient,
 } from '../utils/ingredientHighlighting';
 import { formatProductName } from '../utils/productDisplay';
-import { analyzeProduct, type ProductMetric } from '../utils/productInsights';
-import { getAlternativeProductSuggestions } from '../utils/productSuggestions';
+import type { ProductMetric } from '../utils/productInsights';
 import { isLikelyFoodProduct } from '../utils/productType';
 import {
-  buildShareableResultCaption,
-  buildShareableResultData,
-} from '../utils/shareableResult';
+  buildResultAnalysis,
+  type ExplainedIngredient,
+  type ResultAnalysis,
+} from '../utils/resultAnalysis';
+import { buildShareableResultCaption } from '../utils/shareableResult';
 
 type ResultScreenProps = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
@@ -165,11 +166,12 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const [hasResolvedProfile, setHasResolvedProfile] = useState(
     Boolean(route.params.profileId)
   );
+  const [analysisResult, setAnalysisResult] = useState<ResultAnalysis | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<DietProfileId>(
     route.params.profileId || DEFAULT_DIET_PROFILE_ID
   );
   const [selectedIngredient, setSelectedIngredient] =
-    useState<HighlightedIngredient | null>(null);
+    useState<ExplainedIngredient | null>(null);
   const displayProductName = useMemo(
     () => formatProductName(product?.name),
     [product?.name]
@@ -187,47 +189,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     resultSource === 'ingredient-ocr'
       ? 'This result comes from OCR text extracted from a photographed ingredient label, then analyzed with the same ingredient scoring pipeline.'
       : 'Product data was fetched before this screen opened, so you can review the result immediately.';
-  const ingredientAnalysis = useMemo(() => {
-    const highlightedIngredients = highlightIngredients(product?.ingredientsText);
-    const explainedIngredients = highlightedIngredients.map((ingredient) => {
-      const explanationLookup = explainIngredient(ingredient.ingredient);
-
-      return {
-        ...ingredient,
-        explanationLookup,
-        displayName: explanationLookup.explanation?.name || ingredient.ingredient,
-      };
-    });
-
-    return {
-      cautionIngredients: Array.from(
-        new Set(
-          highlightedIngredients
-            .filter((ingredient) => ingredient.risk === 'caution')
-            .map((ingredient) => ingredient.match?.label)
-            .filter(Boolean)
-        )
-      ),
-      explainedIngredients,
-      highRiskIngredients: Array.from(
-        new Set(
-          highlightedIngredients
-            .filter((ingredient) => ingredient.risk === 'high-risk')
-            .map((ingredient) => ingredient.match?.label)
-            .filter(Boolean)
-        )
-      ),
-      highlightedIngredients,
-    };
-  }, [product?.ingredientsText]);
-  const insights = useMemo(
-    () => (product ? analyzeProduct(product, selectedProfileId) : null),
-    [product, selectedProfileId]
-  );
-  const alternativeSuggestions = useMemo(
-    () => getAlternativeProductSuggestions(product, selectedProfileId),
-    [product, selectedProfileId]
-  );
+  const insights = analysisResult?.insights ?? null;
+  const ingredientAnalysis = analysisResult?.ingredientAnalysis ?? null;
+  const alternativeSuggestions = analysisResult?.suggestions ?? [];
   const healthScoreTheme = useMemo(
     () => getHealthScoreTheme(insights?.smartScore ?? null),
     [insights?.smartScore]
@@ -237,17 +201,8 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     [insights?.gradeLabel]
   );
   const selectedIngredientExplanation: IngredientExplanationLookup | null =
-    useMemo(
-      () =>
-        selectedIngredient
-          ? explainIngredient(selectedIngredient.ingredient)
-          : null,
-      [selectedIngredient]
-    );
-  const shareableResult = useMemo(
-    () => buildShareableResultData(product, selectedProfileId),
-    [product, selectedProfileId]
-  );
+    selectedIngredient?.explanationLookup ?? null;
+  const shareableResult = analysisResult?.shareableResult ?? null;
   const shareCardWidth = useMemo(
     () => Math.min(windowWidth - 64, 360),
     [windowWidth]
@@ -281,6 +236,21 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       isMounted = false;
     };
   }, [route.params.profileId]);
+
+  useEffect(() => {
+    setAnalysisResult(null);
+    setSelectedIngredient(null);
+
+    // Heavy ingredient parsing and score synthesis run after the first frame so
+    // the product screen can paint quickly on slower Android devices.
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      setAnalysisResult(buildResultAnalysis(product, selectedProfileId));
+    });
+
+    return () => {
+      interactionHandle.cancel();
+    };
+  }, [product, selectedProfileId]);
 
   useEffect(() => {
     if (persistToHistory === false || !hasResolvedProfile) {
@@ -398,7 +368,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             <Text style={styles.profileLabel}>Scoring Mode</Text>
             <View style={styles.profileChip}>
               <Text style={styles.profileChipText}>
-                {insights?.profileLabel || 'General'}
+                {insights?.profileLabel || 'Loading...'}
               </Text>
             </View>
           </View>
@@ -406,7 +376,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             <Text style={styles.statusText}>{insights.profileSummary}</Text>
           ) : null}
 
-          {insights && isFoodProduct ? (
+          {!analysisResult ? (
+            <ResultCardSkeleton />
+          ) : insights && isFoodProduct ? (
             <>
               <View
                 style={[
@@ -556,11 +528,17 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           )}
         </View>
 
-        <ProductSuggestionsCard suggestions={alternativeSuggestions} />
+        {!analysisResult ? (
+          <ResultCardSkeleton />
+        ) : (
+          <ProductSuggestionsCard suggestions={alternativeSuggestions} />
+        )}
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>Ingredients</Text>
-          {ingredientAnalysis.explainedIngredients.length > 0 ? (
+          {!ingredientAnalysis ? (
+            <ResultCardSkeleton />
+          ) : ingredientAnalysis.explainedIngredients.length > 0 ? (
             <>
               <View style={styles.ingredientWrap}>
                 {ingredientAnalysis.explainedIngredients.map((ingredient) => (
@@ -615,13 +593,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             </Text>
           )}
 
-          {ingredientAnalysis.highRiskIngredients.length > 0 ? (
+          {ingredientAnalysis?.highRiskIngredients.length ? (
             <Text style={styles.highRiskText}>
               High-risk: {ingredientAnalysis.highRiskIngredients.join(', ')}
             </Text>
           ) : null}
 
-          {ingredientAnalysis.cautionIngredients.length > 0 ? (
+          {ingredientAnalysis?.cautionIngredients.length ? (
             <Text style={styles.cautionText}>
               Caution: {ingredientAnalysis.cautionIngredients.join(', ')}
             </Text>
@@ -650,7 +628,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>Nutrition Snapshot</Text>
-          {insights?.metrics.length ? (
+          {!analysisResult ? (
+            <ResultCardSkeleton compact />
+          ) : insights?.metrics.length ? (
             <View style={styles.metricWrap}>
               {insights.metrics.map((metric) => (
                 <MetricChip key={metric.label} metric={metric} />

@@ -143,13 +143,12 @@ export const ruleBasedProductSuggestionProvider: ProductSuggestionProvider = {
 export function getAlternativeProductSuggestions(
   product: ResolvedProduct,
   profileId: DietProfileId = DEFAULT_DIET_PROFILE_ID,
+  insights: ProductInsights = analyzeProduct(product, profileId),
   provider: ProductSuggestionProvider = ruleBasedProductSuggestionProvider
 ) {
   if (!isLikelyFoodProduct(product)) {
     return [];
   }
-
-  const insights = analyzeProduct(product, profileId);
 
   if (insights.smartScore === null || insights.smartScore >= 58) {
     return [];

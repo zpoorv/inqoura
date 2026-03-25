@@ -7,6 +7,10 @@ import {
   deriveProductNameFromCategories,
   deriveProductNameFromIngredients,
 } from '../utils/productName';
+import {
+  readBarcodeLookupCache,
+  writeBarcodeLookupCache,
+} from './barcodeLookupCache';
 
 export type ProductSourceStatus = 'used' | 'missed';
 
@@ -257,6 +261,13 @@ export async function resolveProductByBarcode(
     return pendingLookup;
   }
 
+  const persistedCacheValue = await readBarcodeLookupCache(cacheKey);
+
+  if (persistedCacheValue !== undefined) {
+    resolvedProductCache.set(cacheKey, persistedCacheValue);
+    return persistedCacheValue;
+  }
+
   // Keep repeat scans and quick back-and-forth navigation from hitting both
   // providers again for the same barcode during the same app session.
   const lookupPromise = performProductLookup(barcode, barcodeType);
@@ -267,6 +278,7 @@ export async function resolveProductByBarcode(
     const resolvedProduct = await lookupPromise;
 
     resolvedProductCache.set(cacheKey, resolvedProduct);
+    void writeBarcodeLookupCache(cacheKey, resolvedProduct);
 
     return resolvedProduct;
   } finally {

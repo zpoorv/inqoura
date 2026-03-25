@@ -6,7 +6,7 @@ import type { ResolvedProduct } from '../services/productLookup';
 import { explainIngredient } from './ingredientExplanations';
 import { highlightIngredients } from './ingredientHighlighting';
 import { formatProductName } from './productDisplay';
-import { analyzeProduct } from './productInsights';
+import { analyzeProduct, type ProductInsights } from './productInsights';
 import { isLikelyFoodProduct } from './productType';
 
 export type ShareableResultData = {
@@ -25,13 +25,12 @@ function uniqueValues(values: Array<string | null | undefined>) {
 
 export function buildShareableResultData(
   product: ResolvedProduct,
-  profileId: DietProfileId = DEFAULT_DIET_PROFILE_ID
+  profileId: DietProfileId = DEFAULT_DIET_PROFILE_ID,
+  insights: ProductInsights = analyzeProduct(product, profileId)
 ): ShareableResultData | null {
   if (!isLikelyFoodProduct(product)) {
     return null;
   }
-
-  const insights = analyzeProduct(product, profileId);
   const riskyIngredients = highlightIngredients(product.ingredientsText)
     .filter((ingredient) => ingredient.risk !== 'safe')
     .sort((left, right) => {

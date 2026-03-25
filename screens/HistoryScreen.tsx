@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -12,6 +11,7 @@ import { useIsFocused } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import HistoryListItemSkeleton from '../components/HistoryListItemSkeleton';
 import HistoryListItem from '../components/HistoryListItem';
 import { colors } from '../constants/colors';
 import type { RootStackParamList } from '../navigation/types';
@@ -52,6 +52,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const isFocused = useIsFocused();
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
     if (!isFocused) {
@@ -85,7 +86,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 
   const visibleEntries = useMemo(() => {
     const filteredEntries = historyEntries.filter((entry) =>
-      matchesQuery(entry, searchQuery)
+      matchesQuery(entry, deferredSearchQuery)
     );
 
     return filteredEntries.sort((left, right) => {
@@ -94,7 +95,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 
       return sortOrder === 'newest' ? rightTime - leftTime : leftTime - rightTime;
     });
-  }, [historyEntries, searchQuery, sortOrder]);
+  }, [deferredSearchQuery, historyEntries, sortOrder]);
   const selectionMode = selectedEntryIds.length > 0;
   const selectedEntryIdSet = useMemo(
     () => new Set(selectedEntryIds),
@@ -248,10 +249,14 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
         </View>
 
         {isLoading ? (
-          <View style={styles.stateCard}>
-            <ActivityIndicator color={colors.primary} size="small" />
-            <Text style={styles.stateText}>Loading scan history...</Text>
-          </View>
+          <FlatList
+            contentContainerStyle={styles.listContent}
+            data={[1, 2, 3, 4]}
+            keyExtractor={(item) => `history-skeleton-${item}`}
+            renderItem={() => <HistoryListItemSkeleton />}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
         ) : visibleEntries.length > 0 ? (
           <FlatList
             contentContainerStyle={styles.listContent}

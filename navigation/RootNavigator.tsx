@@ -2,9 +2,7 @@ import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors } from '../constants/colors';
-import HistoryScreen from '../screens/HistoryScreen';
 import HomeScreen from '../screens/HomeScreen';
-import IngredientOcrScreen from '../screens/IngredientOcrScreen';
 import ResultScreen from '../screens/ResultScreen';
 import ScannerScreen from '../screens/ScannerScreen';
 import type { RootStackParamList } from './types';
@@ -43,7 +41,7 @@ export default function RootNavigator() {
         />
         <Stack.Screen
           name="History"
-          component={HistoryScreen}
+          getComponent={() => require('../screens/HistoryScreen').default}
           options={{ title: 'Scan History' }}
         />
         <Stack.Screen
@@ -53,7 +51,7 @@ export default function RootNavigator() {
         />
         <Stack.Screen
           name="IngredientOcr"
-          component={IngredientOcrScreen}
+          getComponent={() => require('../screens/IngredientOcrScreen').default}
           options={{ title: 'Scan Ingredients' }}
         />
         <Stack.Screen
