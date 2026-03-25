@@ -1,31 +1,44 @@
+import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as Sharing from 'expo-sharing';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { useEffect, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import ViewShot from 'react-native-view-shot';
 
 import IngredientExplanationModal from '../components/IngredientExplanationModal';
+import ShareResultCard from '../components/ShareResultCard';
 import { colors } from '../constants/colors';
-import { saveScanToHistory } from '../services/scanHistoryStorage';
+import type { RootStackParamList } from '../navigation/types';
 import {
   type ProductSourceInfo,
 } from '../services/productLookup';
-import {
-  highlightIngredients,
-  type HighlightedIngredient,
-} from '../utils/ingredientHighlighting';
-import type { RootStackParamList } from '../navigation/types';
+import { saveScanToHistory } from '../services/scanHistoryStorage';
+import { getGradeTone } from '../utils/gradeTone';
 import {
   explainIngredient,
   type IngredientExplanationLookup,
 } from '../utils/ingredientExplanations';
+import {
+  highlightIngredients,
+  type HighlightedIngredient,
+} from '../utils/ingredientHighlighting';
+import { formatProductName } from '../utils/productDisplay';
 import { analyzeProduct, type ProductMetric } from '../utils/productInsights';
+import { isLikelyFoodProduct } from '../utils/productType';
+import {
+  buildShareableResultCaption,
+  buildShareableResultData,
+} from '../utils/shareableResult';
 
 type ResultScreenProps = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
@@ -63,6 +76,17 @@ function getIngredientToneBackground(risk: HighlightedIngredient['risk']) {
   }
 }
 
+function getIngredientRiskLabel(risk: HighlightedIngredient['risk']) {
+  switch (risk) {
+    case 'high-risk':
+      return 'High Risk';
+    case 'caution':
+      return 'Caution';
+    default:
+      return 'Safe';
+  }
+}
+
 function getSourceTone(status: ProductSourceInfo['status']) {
   switch (status) {
     case 'used':
@@ -75,18 +99,7 @@ function getSourceTone(status: ProductSourceInfo['status']) {
 }
 
 function getOffScoreTone(grade?: string | null) {
-  switch (grade) {
-    case 'A':
-    case 'B':
-      return colors.success;
-    case 'C':
-      return colors.warning;
-    case 'D':
-    case 'E':
-      return colors.danger;
-    default:
-      return colors.border;
-  }
+  return getGradeTone(grade);
 }
 
 function getHealthScoreTheme(score: number | null) {
@@ -129,10 +142,16 @@ function getHealthScoreTheme(score: number | null) {
   };
 }
 
-export default function ResultScreen({ route }: ResultScreenProps) {
+export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const { barcode, barcodeType, product } = route.params;
+  const shareCardRef = useRef<ViewShot | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [isSharing, setIsSharing] = useState(false);
   const [selectedIngredient, setSelectedIngredient] =
     useState<HighlightedIngredient | null>(null);
+  const displayProductName = formatProductName(product?.name);
+  const isFoodProduct = isLikelyFoodProduct(product);
 
   const barcodeFormatLabel = barcodeType
     ? barcodeType.replace(/_/g, ' ').toUpperCase()
@@ -165,8 +184,15 @@ export default function ResultScreen({ route }: ResultScreenProps) {
   );
   const insights = product ? analyzeProduct(product) : null;
   const healthScoreTheme = getHealthScoreTheme(insights?.smartScore ?? null);
+  const gradeTone = getGradeTone(insights?.gradeLabel);
   const selectedIngredientExplanation: IngredientExplanationLookup | null =
     selectedIngredient ? explainIngredient(selectedIngredient.ingredient) : null;
+  const shareableResult = buildShareableResultData(product);
+  const shareCardWidth = Math.min(windowWidth - 64, 360);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: displayProductName });
+  }, [displayProductName, navigation]);
 
   useEffect(() => {
     let isMounted = true;
@@ -192,12 +218,57 @@ export default function ResultScreen({ route }: ResultScreenProps) {
     };
   }, [barcode, barcodeType, product]);
 
+  const handleShareResult = async () => {
+    if (!shareCardRef.current || !shareableResult || isSharing) {
+      return;
+    }
+
+    setIsSharing(true);
+
+    try {
+      const imageUri = await shareCardRef.current.capture?.();
+      const shareMessage = buildShareableResultCaption(shareableResult);
+
+      if (imageUri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(imageUri, {
+          dialogTitle: `Share ${shareableResult.productName}`,
+          mimeType: 'image/png',
+        });
+
+        return;
+      }
+
+      await Share.share({
+        message: shareMessage,
+        title: shareableResult.productName,
+      });
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Failed to share result card', error);
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
+        {shareableResult ? (
+          <View style={styles.hiddenShareCapture}>
+            <ViewShot
+              options={{ fileName: `scan-result-${barcode}`, format: 'png', quality: 1 }}
+              ref={shareCardRef}
+              style={{ width: shareCardWidth }}
+            >
+              <ShareResultCard data={shareableResult} />
+            </ViewShot>
+          </View>
+        ) : null}
+
         <View style={styles.heroCard}>
           <Text style={styles.heroEyebrow}>Scanned Barcode</Text>
           <Text style={styles.barcodeText}>{barcode}</Text>
@@ -213,7 +284,7 @@ export default function ResultScreen({ route }: ResultScreenProps) {
         <View style={styles.infoCard}>
           <Text style={styles.label}>Health Score</Text>
 
-          {insights ? (
+          {insights && isFoodProduct ? (
             <>
               <View
                 style={[
@@ -256,7 +327,7 @@ export default function ResultScreen({ route }: ResultScreenProps) {
                   <Text
                     style={[
                       styles.healthScoreLabel,
-                      { color: healthScoreTheme.text },
+                      { color: gradeTone.color },
                     ]}
                   >
                     {`Grade ${insights.gradeLabel} • ${healthScoreTheme.label}`}
@@ -278,14 +349,14 @@ export default function ResultScreen({ route }: ResultScreenProps) {
                 />
               </View>
               <View style={styles.scoreLegendRow}>
-                <Text style={[styles.scoreLegendText, { color: colors.success }]}>
-                  Green 80+
+                <Text style={[styles.scoreLegendText, { color: colors.danger }]}>
+                  Red &lt;50
                 </Text>
                 <Text style={[styles.scoreLegendText, { color: colors.warning }]}>
                   Yellow 50-79
                 </Text>
-                <Text style={[styles.scoreLegendText, { color: colors.danger }]}>
-                  Red &lt;50
+                <Text style={[styles.scoreLegendText, { color: colors.success }]}>
+                  Green 80+
                 </Text>
               </View>
 
@@ -311,7 +382,7 @@ export default function ResultScreen({ route }: ResultScreenProps) {
             </>
           ) : (
             <Text style={styles.statusText}>
-              Smart scoring will appear after product data is loaded.
+              Health scoring is only shown for edible food and drink products.
             </Text>
           )}
         </View>
@@ -327,9 +398,7 @@ export default function ResultScreen({ route }: ResultScreenProps) {
             />
           ) : null}
 
-          <Text style={styles.value}>
-            {product?.name || 'Catalog entry unavailable'}
-          </Text>
+          <Text style={styles.value}>{displayProductName}</Text>
           {product?.nameReason ? (
             <Text style={styles.statusText}>{product.nameReason}</Text>
           ) : null}
@@ -375,24 +444,38 @@ export default function ResultScreen({ route }: ResultScreenProps) {
                     accessibilityRole="button"
                     onPress={() => setSelectedIngredient(ingredient)}
                     style={[
-                      styles.ingredientChip,
+                      styles.ingredientRow,
                       {
                         backgroundColor: getIngredientToneBackground(ingredient.risk),
                         borderColor: getIngredientToneColor(ingredient.risk),
                       },
                     ]}
                   >
-                    <Text
+                    <View style={styles.ingredientRowTextBlock}>
+                      <Text
+                        style={[
+                          styles.ingredientRowText,
+                          {
+                            color: getIngredientToneColor(ingredient.risk),
+                            fontWeight: ingredient.risk === 'safe' ? '600' : '700',
+                          },
+                        ]}
+                      >
+                        {ingredient.displayName}
+                      </Text>
+                    </View>
+                    <View
                       style={[
-                        styles.ingredientChipText,
+                        styles.ingredientRiskBadge,
                         {
-                          color: getIngredientToneColor(ingredient.risk),
-                          fontWeight: ingredient.risk === 'safe' ? '600' : '700',
+                          backgroundColor: getIngredientToneColor(ingredient.risk),
                         },
                       ]}
                     >
-                      {ingredient.displayName}
-                    </Text>
+                      <Text style={styles.ingredientRiskBadgeText}>
+                        {getIngredientRiskLabel(ingredient.risk)}
+                      </Text>
+                    </View>
                   </Pressable>
                 ))}
               </View>
@@ -465,17 +548,16 @@ export default function ResultScreen({ route }: ResultScreenProps) {
               <View
                 style={[
                   styles.gradeBadge,
-                  { backgroundColor: getOffScoreTone(product.nutriScore) },
+                  {
+                    backgroundColor: getOffScoreTone(product.nutriScore).backgroundColor,
+                  },
                 ]}
               >
                 <Text
                   style={[
                     styles.gradeText,
                     {
-                      color:
-                        product.nutriScore === 'Unknown'
-                          ? colors.text
-                          : colors.surface,
+                      color: getOffScoreTone(product.nutriScore).color,
                     },
                   ]}
                 >
@@ -517,6 +599,26 @@ export default function ResultScreen({ route }: ResultScreenProps) {
           )}
         </View>
       </ScrollView>
+      {shareableResult ? (
+        <Pressable
+          accessibilityLabel="Share result card"
+          accessibilityRole="button"
+          disabled={isSharing}
+          onPress={handleShareResult}
+          style={({ pressed }) => [
+            styles.floatingShareButton,
+            { bottom: Math.max(insets.bottom + 20, 36) },
+            isSharing && styles.floatingShareButtonDisabled,
+            pressed && !isSharing && styles.floatingShareButtonPressed,
+          ]}
+        >
+          <Ionicons
+            color={colors.surface}
+            name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
+            size={24}
+          />
+        </Pressable>
+      ) : null}
       <IngredientExplanationModal
         lookup={selectedIngredientExplanation}
         onClose={() => setSelectedIngredient(null)}
@@ -604,6 +706,12 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 24,
   },
+  hiddenShareCapture: {
+    left: -9999,
+    opacity: 0,
+    position: 'absolute',
+    top: -9999,
+  },
   heroEyebrow: {
     color: colors.primary,
     fontSize: 13,
@@ -619,19 +727,39 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 20,
   },
-  ingredientChip: {
+  ingredientRiskBadge: {
+    alignItems: 'center',
     borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    justifyContent: 'center',
+    minWidth: 76,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
-  ingredientChipText: {
+  ingredientRiskBadgeText: {
+    color: colors.surface,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  ingredientRow: {
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 18,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    width: '100%',
+  },
+  ingredientRowText: {
     fontSize: 14,
     lineHeight: 20,
   },
+  ingredientRowTextBlock: {
+    flex: 1,
+  },
   ingredientWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
   },
   label: {
@@ -711,6 +839,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 21,
+  },
+  floatingShareButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    bottom: 24,
+    justifyContent: 'center',
+    height: 58,
+    position: 'absolute',
+    right: 20,
+    shadowColor: '#0F1615',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    width: 58,
+    elevation: 6,
+  },
+  floatingShareButtonDisabled: {
+    backgroundColor: colors.textMuted,
+  },
+  floatingShareButtonPressed: {
+    opacity: 0.92,
   },
   scoreBadge: {
     alignItems: 'center',

@@ -1,21 +1,35 @@
 import type { HealthScoreGrade } from '../constants/productHealthScore';
 import type { ResolvedProduct } from '../services/productLookup';
+import { formatProductName } from './productDisplay';
 import { highlightIngredients } from './ingredientHighlighting';
 import { analyzeProduct } from './productInsights';
+import { isLikelyFoodProduct } from './productType';
 
 export type ScanHistoryRiskLevel = 'safe' | 'caution' | 'high-risk';
 
 export type ScanHistorySnapshot = {
-  gradeLabel: HealthScoreGrade;
+  gradeLabel: HealthScoreGrade | null;
   name: string;
   riskLevel: ScanHistoryRiskLevel;
   riskSummary: string;
-  score: number;
+  score: number | null;
 };
 
 export function buildScanHistorySnapshot(
   product: ResolvedProduct
 ): ScanHistorySnapshot {
+  const displayName = formatProductName(product.name);
+
+  if (!isLikelyFoodProduct(product)) {
+    return {
+      gradeLabel: null,
+      name: displayName,
+      riskLevel: 'safe',
+      riskSummary: 'Not scored because this does not appear to be a food item',
+      score: null,
+    };
+  }
+
   const insights = analyzeProduct(product);
   const ingredientFlags = highlightIngredients(product.ingredientsText);
   const highRiskCount = ingredientFlags.filter(
@@ -28,7 +42,7 @@ export function buildScanHistorySnapshot(
   if (highRiskCount > 0) {
     return {
       gradeLabel: insights.gradeLabel,
-      name: product.name,
+      name: displayName,
       riskLevel: 'high-risk',
       riskSummary: `${highRiskCount} high-risk ingredient flag${highRiskCount > 1 ? 's' : ''}`,
       score: insights.smartScore,
@@ -38,7 +52,7 @@ export function buildScanHistorySnapshot(
   if (cautionCount > 0) {
     return {
       gradeLabel: insights.gradeLabel,
-      name: product.name,
+      name: displayName,
       riskLevel: 'caution',
       riskSummary: `${cautionCount} caution ingredient flag${cautionCount > 1 ? 's' : ''}`,
       score: insights.smartScore,
@@ -48,7 +62,7 @@ export function buildScanHistorySnapshot(
   if (insights.cautions.length > 0) {
     return {
       gradeLabel: insights.gradeLabel,
-      name: product.name,
+      name: displayName,
       riskLevel: 'caution',
       riskSummary: insights.cautions[0],
       score: insights.smartScore,
@@ -57,7 +71,7 @@ export function buildScanHistorySnapshot(
 
   return {
     gradeLabel: insights.gradeLabel,
-    name: product.name,
+    name: displayName,
     riskLevel: 'safe',
     riskSummary: 'No major ingredient flags detected',
     score: insights.smartScore,

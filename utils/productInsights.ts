@@ -1,4 +1,5 @@
 import type { ResolvedProduct } from '../services/productLookup';
+import { formatProductName } from './productDisplay';
 import {
   findHarmfulIngredients,
 } from './healthScore';
@@ -7,6 +8,7 @@ import {
   type ProductHealthScoreAdjustment,
 } from './productHealthScore';
 import type { HealthScoreGrade } from '../constants/productHealthScore';
+import { isLikelyFoodProduct } from './productType';
 
 export type ProductMetric = {
   label: string;
@@ -16,11 +18,11 @@ export type ProductMetric = {
 
 export type ProductInsights = {
   cautions: string[];
-  gradeLabel: HealthScoreGrade;
+  gradeLabel: HealthScoreGrade | null;
   highlights: string[];
   metrics: ProductMetric[];
   processingLabel: string | null;
-  smartScore: number;
+  smartScore: number | null;
   summary: string;
   verdict: string;
 };
@@ -204,6 +206,19 @@ function buildMetrics(product: ResolvedProduct): ProductMetric[] {
 }
 
 export function analyzeProduct(product: ResolvedProduct): ProductInsights {
+  if (!isLikelyFoodProduct(product)) {
+    return {
+      cautions: ['This item does not look like an edible product'],
+      gradeLabel: null,
+      highlights: [],
+      metrics: [],
+      processingLabel: null,
+      smartScore: null,
+      summary: 'Health scoring is only shown for edible food and drink products.',
+      verdict: `${formatProductName(product.name)} is not being scored as a food item.`,
+    };
+  }
+
   const harmfulMatches = findHarmfulIngredients(product.ingredientsText);
   const healthScore = scoreProductHealth(product);
   const processingLabel = getProcessingLabel(product.novaGroup);

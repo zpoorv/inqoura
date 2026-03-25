@@ -1,0 +1,65 @@
+import type { ResolvedProduct } from '../services/productLookup';
+import { explainIngredient } from './ingredientExplanations';
+import { highlightIngredients } from './ingredientHighlighting';
+import { formatProductName } from './productDisplay';
+import { analyzeProduct } from './productInsights';
+import { isLikelyFoodProduct } from './productType';
+
+export type ShareableResultData = {
+  gradeLabel: string;
+  productName: string;
+  score: number;
+  topRiskyIngredients: string[];
+  verdict: string;
+};
+
+function uniqueValues(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter(Boolean))) as string[];
+}
+
+export function buildShareableResultData(
+  product: ResolvedProduct
+): ShareableResultData | null {
+  if (!isLikelyFoodProduct(product)) {
+    return null;
+  }
+
+  const insights = analyzeProduct(product);
+  const riskyIngredients = highlightIngredients(product.ingredientsText)
+    .filter((ingredient) => ingredient.risk !== 'safe')
+    .sort((left, right) => {
+      if (left.risk === right.risk) {
+        return 0;
+      }
+
+      return left.risk === 'high-risk' ? -1 : 1;
+    })
+    .map((ingredient) => {
+      const explanation = explainIngredient(ingredient.ingredient);
+
+      return explanation.explanation?.name || ingredient.match?.label || ingredient.ingredient;
+    });
+
+  const topRiskyIngredients = uniqueValues(riskyIngredients).slice(0, 3);
+
+  if (topRiskyIngredients.length === 0 && product.additiveTags.length > 0) {
+    topRiskyIngredients.push(...product.additiveTags.slice(0, 3));
+  }
+
+  return {
+    gradeLabel: insights.gradeLabel || 'N/A',
+    productName: formatProductName(product.name),
+    score: insights.smartScore ?? 0,
+    topRiskyIngredients,
+    verdict: insights.summary,
+  };
+}
+
+export function buildShareableResultCaption(data: ShareableResultData) {
+  const ingredientsLine =
+    data.topRiskyIngredients.length > 0
+      ? `Top watch-outs: ${data.topRiskyIngredients.join(', ')}.`
+      : 'No major ingredient flags were highlighted in this quick scan.';
+
+  return `${data.productName}\nScore: ${data.score}/100 • Grade ${data.gradeLabel}\n${ingredientsLine}\nVerdict: ${data.verdict}`;
+}

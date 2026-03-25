@@ -13,14 +13,14 @@ export type ScanHistoryEntry = {
   barcode: string;
   barcodeType?: string | null;
   firstScannedAt: string;
-  gradeLabel: HealthScoreGrade;
+  gradeLabel: HealthScoreGrade | null;
   id: string;
   name: string;
   product: ResolvedProduct;
   riskLevel: ScanHistoryRiskLevel;
   riskSummary: string;
   scanCount: number;
-  score: number;
+  score: number | null;
   scannedAt: string;
 };
 
@@ -72,7 +72,7 @@ function isValidHistoryEntry(value: unknown): value is ScanHistoryEntry {
     typeof candidate.barcode === 'string' &&
     typeof candidate.name === 'string' &&
     typeof candidate.scannedAt === 'string' &&
-    typeof candidate.score === 'number' &&
+    (typeof candidate.score === 'number' || candidate.score === null) &&
     typeof candidate.riskSummary === 'string' &&
     typeof candidate.product === 'object'
   );
@@ -122,4 +122,17 @@ export async function saveScanToHistory(
   await writeHistory(nextEntries);
 
   return nextEntry;
+}
+
+export async function deleteScanHistoryEntries(ids: string[]) {
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const historyEntries = await loadScanHistory();
+  const nextEntries = historyEntries.filter((entry) => !ids.includes(entry.id));
+
+  await writeHistory(nextEntries);
+
+  return nextEntries;
 }

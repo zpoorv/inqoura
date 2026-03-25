@@ -15,7 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import HistoryListItem from '../components/HistoryListItem';
 import { colors } from '../constants/colors';
 import type { RootStackParamList } from '../navigation/types';
-import { loadScanHistory, type ScanHistoryEntry } from '../services/scanHistoryStorage';
+import {
+  deleteScanHistoryEntries,
+  loadScanHistory,
+  type ScanHistoryEntry,
+} from '../services/scanHistoryStorage';
 
 type HistoryScreenProps = NativeStackScreenProps<RootStackParamList, 'History'>;
 type SortOrder = 'newest' | 'oldest';
@@ -42,6 +46,7 @@ function matchesQuery(entry: ScanHistoryEntry, query: string) {
 export default function HistoryScreen({ navigation }: HistoryScreenProps) {
   const [historyEntries, setHistoryEntries] = useState<ScanHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const isFocused = useIsFocused();
@@ -88,6 +93,33 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
       return sortOrder === 'newest' ? rightTime - leftTime : leftTime - rightTime;
     });
   }, [historyEntries, searchQuery, sortOrder]);
+  const selectionMode = selectedEntryIds.length > 0;
+
+  const toggleEntrySelection = (entryId: string) => {
+    setSelectedEntryIds((currentIds) =>
+      currentIds.includes(entryId)
+        ? currentIds.filter((id) => id !== entryId)
+        : [...currentIds, entryId]
+    );
+  };
+
+  const handleDeleteEntries = async (entryIds: string[]) => {
+    const nextEntries = await deleteScanHistoryEntries(entryIds);
+
+    setHistoryEntries(nextEntries);
+    setSelectedEntryIds((currentIds) =>
+      currentIds.filter((id) => !entryIds.includes(id))
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedEntryIds.length === visibleEntries.length) {
+      setSelectedEntryIds([]);
+      return;
+    }
+
+    setSelectedEntryIds(visibleEntries.map((entry) => entry.id));
+  };
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
@@ -137,6 +169,38 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
               );
             })}
           </View>
+          {visibleEntries.length > 0 ? (
+            <View style={styles.selectionActions}>
+              <Pressable
+                onPress={handleToggleSelectAll}
+                style={styles.selectionActionChip}
+              >
+                <Text style={styles.selectionActionText}>
+                  {selectedEntryIds.length === visibleEntries.length
+                    ? 'Clear All'
+                    : 'Select All'}
+                </Text>
+              </Pressable>
+              {selectionMode ? (
+                <>
+                  <Pressable
+                    onPress={() => setSelectedEntryIds([])}
+                    style={styles.selectionActionChip}
+                  >
+                    <Text style={styles.selectionActionText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleDeleteEntries(selectedEntryIds)}
+                    style={styles.deleteActionChip}
+                  >
+                    <Text style={styles.deleteActionText}>
+                      Delete Selected
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
+            </View>
+          ) : null}
         </View>
 
         {isLoading ? (
@@ -152,13 +216,22 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
             renderItem={({ item }) => (
               <HistoryListItem
                 entry={item}
-                onPress={() =>
+                isSelected={selectedEntryIds.includes(item.id)}
+                onDelete={() => handleDeleteEntries([item.id])}
+                onLongPress={() => toggleEntrySelection(item.id)}
+                onPress={() => {
+                  if (selectionMode) {
+                    toggleEntrySelection(item.id);
+                    return;
+                  }
+
                   navigation.push('Result', {
                     barcode: item.barcode,
                     barcodeType: item.barcodeType,
                     product: item.product,
-                  })
-                }
+                  });
+                }}
+                selectionMode={selectionMode}
               />
             )}
             showsVerticalScrollIndicator={false}
@@ -218,6 +291,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
   },
+  deleteActionChip: {
+    backgroundColor: colors.dangerMuted,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  deleteActionText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   searchInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
@@ -251,6 +335,24 @@ const styles = StyleSheet.create({
   sortRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  selectionActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  selectionActionChip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  selectionActionText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   stateCard: {
     alignItems: 'center',

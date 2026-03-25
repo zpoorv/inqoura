@@ -202,14 +202,6 @@ export default function ScannerScreen({ navigation }: ScannerScreenProps) {
     setScannerState('ready');
   };
 
-  const handleRetryLookup = () => {
-    if (!lastScan || isLookupInFlight) {
-      return;
-    }
-
-    void lookupProduct(lastScan.barcode, lastScan.barcodeType);
-  };
-
   const handlePermissionRequest = async () => {
     await requestPermission();
   };
@@ -299,12 +291,7 @@ export default function ScannerScreen({ navigation }: ScannerScreenProps) {
 
             {scannerState === 'error' ? (
               <>
-                <PrimaryButton label="Retry Lookup" onPress={handleRetryLookup} />
-                <Pressable onPress={handleResetScanner} style={styles.inlineAction}>
-                  <Text style={styles.inlineActionText}>
-                    Scan a different product instead
-                  </Text>
-                </Pressable>
+                <PrimaryButton label="Scan Again" onPress={handleResetScanner} />
               </>
             ) : null}
 
@@ -362,15 +349,6 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 10,
-  },
-  inlineAction: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  inlineActionText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
   },
   loadingContainer: {
     alignItems: 'center',
