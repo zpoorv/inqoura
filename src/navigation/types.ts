@@ -1,11 +1,12 @@
 import type { DietProfileId } from '../constants/dietProfiles';
+import type { LoginScreenParams } from '../models/auth';
 import type { ResolvedProduct } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
 
 export type RootStackParamList = {
   Home: undefined;
   History: undefined;
-  Login: undefined;
+  Login: LoginScreenParams;
   IngredientOcr:
     | {
         profileId?: DietProfileId;

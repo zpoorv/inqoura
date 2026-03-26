@@ -7,7 +7,8 @@ import AuthTextField from '../components/AuthTextField';
 import PrimaryButton from '../components/PrimaryButton';
 import { APP_NAME } from '../constants/branding';
 import { colors } from '../constants/colors';
-import { AuthServiceError, requestPasswordReset } from '../services/authService';
+import { AuthServiceError } from '../services/authHelpers';
+import { requestPasswordReset } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
 
 type ResetPasswordScreenProps = NativeStackScreenProps<
@@ -49,7 +50,8 @@ export default function ResetPasswordScreen({
           <Text style={styles.eyebrow}>Password Reset</Text>
           <Text style={styles.title}>Reset your {APP_NAME} password</Text>
           <Text style={styles.subtitle}>
-            Enter your email and Firebase will send a reset link if the account exists.
+            Enter your email and Firebase will send a password reset email if the account
+            exists.
           </Text>
         </View>
 
@@ -66,7 +68,7 @@ export default function ResetPasswordScreen({
           {infoMessage ? <Text style={styles.infoText}>{infoMessage}</Text> : null}
           <PrimaryButton
             disabled={isSubmitting}
-            label={isSubmitting ? 'Sending...' : 'Send Reset Link'}
+            label={isSubmitting ? 'Sending...' : 'Send Reset Email'}
             onPress={() => void handleResetRequest()}
           />
           <PrimaryButton label="Back to Login" onPress={() => navigation.goBack()} />

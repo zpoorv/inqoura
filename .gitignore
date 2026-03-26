@@ -35,6 +35,11 @@ yarn-error.*
 .env*.local
 google-services.json
 GoogleService-Info.plist
+play-service-account.json
+
+# local planning/docs
+docs/
+.tmp*
 
 # typescript
 *.tsbuildinfo

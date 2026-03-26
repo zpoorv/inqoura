@@ -44,6 +44,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [accountProvider, setAccountProvider] = useState(
     getAuthSession().user?.provider ?? 'email'
   );
+  const [accountEmailVerified, setAccountEmailVerified] = useState(
+    getAuthSession().user?.emailVerified ?? false
+  );
   const [accountDisplayName, setAccountDisplayName] = useState(
     getAuthSession().user?.displayName ?? ''
   );
@@ -79,6 +82,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     const unsubscribe = subscribeAuthSession((session) => {
       setAccountEmail(session.user?.email ?? '');
       setAccountDisplayName(session.user?.displayName ?? '');
+      setAccountEmailVerified(session.user?.emailVerified ?? false);
       setAccountProvider(session.user?.provider ?? 'email');
     });
 
@@ -168,7 +172,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               <Text style={styles.accountText}>
                 {accountProvider === 'google'
                   ? 'Signed in with Google through Firebase Authentication.'
-                  : 'Signed in with email and password through Firebase Authentication.'}
+                  : accountEmailVerified
+                    ? 'Signed in with a verified email account through Firebase Authentication.'
+                    : 'Signed in with email authentication through Firebase Authentication.'}
               </Text>
             </View>
 

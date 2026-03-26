@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,19 +8,36 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import PrimaryButton from '../components/PrimaryButton';
 import { APP_NAME } from '../constants/branding';
 import { colors } from '../constants/colors';
-import { AuthServiceError, loginWithEmail } from '../services/authService';
+import { AuthServiceError } from '../services/authHelpers';
+import { loginWithEmail } from '../services/authService';
+import { sendPasswordlessEmailLink } from '../services/emailLinkAuthService';
 import type { RootStackParamList } from '../navigation/types';
 
 type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
-export default function LoginScreen({ navigation }: LoginScreenProps) {
-  const [email, setEmail] = useState('');
+export default function LoginScreen({ navigation, route }: LoginScreenProps) {
+  const [email, setEmail] = useState(route.params?.prefillEmail ?? '');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(
+    route.params?.notice ?? null
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingLink, setIsSendingLink] = useState(false);
+
+  useEffect(() => {
+    if (route.params?.prefillEmail) {
+      setEmail(route.params.prefillEmail);
+    }
+
+    if (route.params?.notice) {
+      setNoticeMessage(route.params.notice);
+    }
+  }, [route.params?.notice, route.params?.prefillEmail]);
 
   const handleLogin = async () => {
     setErrorMessage(null);
+    setNoticeMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -36,6 +53,25 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
   };
 
+  const handleEmailLink = async () => {
+    setErrorMessage(null);
+    setNoticeMessage(null);
+    setIsSendingLink(true);
+
+    try {
+      const message = await sendPasswordlessEmailLink(email);
+      setNoticeMessage(message);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof AuthServiceError
+          ? error.message
+          : 'We could not send a sign-in link right now.'
+      );
+    } finally {
+      setIsSendingLink(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -43,7 +79,8 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
           <Text style={styles.eyebrow}>Welcome Back</Text>
           <Text style={styles.title}>Log in to {APP_NAME}</Text>
           <Text style={styles.subtitle}>
-            Use email and password or continue with Google through Firebase Authentication.
+            Use your password, a passwordless email link, or continue with Google through
+            Firebase Authentication.
           </Text>
         </View>
 
@@ -57,6 +94,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
             placeholder="you@example.com"
             value={email}
           />
+          {noticeMessage ? <Text style={styles.noticeText}>{noticeMessage}</Text> : null}
           <AuthTextField
             autoComplete="password"
             errorMessage={errorMessage}
@@ -74,6 +112,11 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
           <Pressable onPress={() => navigation.navigate('ResetPassword')} style={styles.link}>
             <Text style={styles.linkText}>Forgot password?</Text>
+          </Pressable>
+          <Pressable disabled={isSendingLink} onPress={() => void handleEmailLink()} style={styles.link}>
+            <Text style={styles.linkText}>
+              {isSendingLink ? 'Sending sign-in link...' : 'Email me a sign-in link'}
+            </Text>
           </Pressable>
 
           <View style={styles.dividerRow}>
@@ -156,6 +199,11 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '700',
+  },
+  noticeText: {
+    color: colors.primary,
+    fontSize: 14,
+    lineHeight: 21,
   },
   safeArea: {
     backgroundColor: colors.background,

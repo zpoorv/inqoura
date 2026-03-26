@@ -8,7 +8,8 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import PrimaryButton from '../components/PrimaryButton';
 import { APP_NAME } from '../constants/branding';
 import { colors } from '../constants/colors';
-import { AuthServiceError, signUpWithEmail } from '../services/authService';
+import { AuthServiceError } from '../services/authHelpers';
+import { signUpWithEmail } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
 
 type SignUpScreenProps = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
@@ -25,7 +26,11 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
     setIsSubmitting(true);
 
     try {
-      await signUpWithEmail({ email, password, passwordConfirmation });
+      const notice = await signUpWithEmail({ email, password, passwordConfirmation });
+      navigation.replace('Login', {
+        notice,
+        prefillEmail: email.trim().toLowerCase(),
+      });
     } catch (error) {
       setErrorMessage(
         error instanceof AuthServiceError
@@ -44,7 +49,8 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
           <Text style={styles.eyebrow}>Create Account</Text>
           <Text style={styles.title}>Create your {APP_NAME} account</Text>
           <Text style={styles.subtitle}>
-            Sign up with email and password, or use Google through Firebase Authentication.
+            Sign up with email and password, then verify your email before logging in, or use
+            Google through Firebase Authentication.
           </Text>
         </View>
 

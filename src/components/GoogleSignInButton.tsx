@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../constants/colors';
-import { AuthServiceError, signInWithGoogleIdToken } from '../services/authService';
+import { AuthServiceError } from '../services/authHelpers';
+import { signInWithGoogleIdToken } from '../services/authService';
 import {
   getFirebaseConfigurationError,
   getGoogleConfigurationError

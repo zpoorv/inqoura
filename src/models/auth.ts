@@ -4,6 +4,7 @@ export type AuthUser = {
   createdAt: string;
   displayName?: string | null;
   email: string;
+  emailVerified: boolean;
   id: string;
   photoUrl?: string | null;
   provider: AuthProviderId;
@@ -23,3 +24,10 @@ export type EmailPasswordLoginInput = {
 export type EmailPasswordSignUpInput = EmailPasswordLoginInput & {
   passwordConfirmation: string;
 };
+
+export type LoginScreenParams =
+  | {
+      notice?: string;
+      prefillEmail?: string;
+    }
+  | undefined;

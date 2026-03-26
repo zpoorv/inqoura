@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import { APP_NAME } from '../constants/branding';
 import { colors } from '../constants/colors';
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import { hydrateAuthSession } from '../services/authService';
+import {
+  canHandleEmailLink,
+  completeEmailLinkSignIn,
+} from '../services/emailLinkAuthService';
+import { AuthServiceError } from '../services/authHelpers';
 import { getAuthSession, subscribeAuthSession } from '../store';
 import ResultScreen from '../screens/ResultScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
@@ -32,12 +37,55 @@ const navigationTheme = {
 
 export default function RootNavigator() {
   const [authSession, setAuthSession] = useState(getAuthSession());
+  const [isHandlingEmailLink, setIsHandlingEmailLink] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribeAuthSession(setAuthSession);
     void hydrateAuthSession();
 
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const handleIncomingUrl = async (url: string | null) => {
+      if (!url || !canHandleEmailLink(url)) {
+        return;
+      }
+
+      if (isMounted) {
+        setIsHandlingEmailLink(true);
+      }
+
+      try {
+        await completeEmailLinkSignIn(url);
+      } catch (error) {
+        Alert.alert(
+          'Email sign-in failed',
+          error instanceof AuthServiceError
+            ? error.message
+            : 'We could not finish that email sign-in link.'
+        );
+      } finally {
+        if (isMounted) {
+          setIsHandlingEmailLink(false);
+        }
+      }
+    };
+
+    void Linking.getInitialURL().then((url) => {
+      void handleIncomingUrl(url);
+    });
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      void handleIncomingUrl(url);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
   }, []);
 
   const isAuthenticated = authSession.status === 'authenticated';
@@ -53,7 +101,7 @@ export default function RootNavigator() {
           headerTintColor: colors.text,
         }}
       >
-        {authSession.status === 'loading' ? (
+        {authSession.status === 'loading' || isHandlingEmailLink ? (
           <Stack.Screen
             name="Login"
             component={AuthBootstrapScreen}

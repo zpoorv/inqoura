@@ -21,21 +21,39 @@
       },
       "edgeToEdgeEnabled": true,
       "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "host": "inqoura.firebaseapp.com",
+              "scheme": "https"
+            },
+            {
+              "host": "inqoura.web.app",
+              "scheme": "https"
+            }
+          ]
+        }
+      ],
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.zpoorv.inqoura"
+      "package": "com.zpoorv.inqoura",
+      "versionCode": 1
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "@react-native-google-signin/google-signin",
       [
         "expo-camera",
         {

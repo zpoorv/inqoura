@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs
 import type { AuthUser } from '../models/auth';
 
 const AUTH_SESSION_STORAGE_KEY = 'inqoura/auth-session/v1';
+const AUTH_EMAIL_LINK_STORAGE_KEY = 'inqoura/auth-email-link/v1';
 
 export async function loadStoredAuthSessionUser(): Promise<AuthUser | null> {
   const rawValue = await AsyncStorage.getItem(AUTH_SESSION_STORAGE_KEY);
@@ -25,4 +26,16 @@ export async function saveStoredAuthSessionUser(user: AuthUser) {
 
 export async function clearStoredAuthSessionUser() {
   await AsyncStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+}
+
+export async function savePendingEmailLinkAddress(email: string) {
+  await AsyncStorage.setItem(AUTH_EMAIL_LINK_STORAGE_KEY, email);
+}
+
+export async function loadPendingEmailLinkAddress() {
+  return AsyncStorage.getItem(AUTH_EMAIL_LINK_STORAGE_KEY);
+}
+
+export async function clearPendingEmailLinkAddress() {
+  await AsyncStorage.removeItem(AUTH_EMAIL_LINK_STORAGE_KEY);
 }

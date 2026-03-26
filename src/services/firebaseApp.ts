@@ -15,6 +15,18 @@ const googleClientConfig = {
   webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID ?? '',
 };
 
+export function getFirebaseAuthLinkUrl() {
+  if (firebaseConfig.authDomain) {
+    return `https://${firebaseConfig.authDomain}/auth/email-link`;
+  }
+
+  if (firebaseConfig.projectId) {
+    return `https://${firebaseConfig.projectId}.firebaseapp.com/auth/email-link`;
+  }
+
+  return '';
+}
+
 export function getFirebaseConfigurationError() {
   const missingKeys = Object.entries(firebaseConfig)
     .filter(([, value]) => !value)
