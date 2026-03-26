@@ -1,3 +1,6 @@
+import type { ProductOverrideLink } from '../models/productOverride';
+import type { HealthScoreGrade } from '../constants/productHealthScore';
+
 export type ProductSourceStatus = 'used' | 'missed';
 
 export type ProductSourceInfo = {
@@ -23,6 +26,18 @@ export type ResolvedNutrition = {
 export type ResolvedProduct = {
   additiveCount: number;
   additiveTags: string[];
+  adminMetadata?: {
+    customGradeLabel: HealthScoreGrade | null;
+    customScore: number | null;
+    customSummary: string | null;
+    customVerdict: string | null;
+    hasCustomAlternatives: boolean;
+    hasManagedData: boolean;
+    healthierAlternatives: ProductOverrideLink[];
+    notes: string | null;
+    sourceNote: string | null;
+    updatedAt: string | null;
+  } | null;
   allergens: string[];
   barcode: string;
   brand: string | null;

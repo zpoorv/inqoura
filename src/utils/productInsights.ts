@@ -315,18 +315,23 @@ export function analyzeProduct(
   const summary = [healthScore.explanation, profileAssessment.summary]
     .filter(Boolean)
     .join(' ');
+  const adminMetadata = product.adminMetadata;
+  const smartScore = adminMetadata?.customScore ?? profileAssessment.score;
+  const gradeLabel = adminMetadata?.customGradeLabel ?? profileAssessment.gradeLabel;
+  const verdict = adminMetadata?.customVerdict || getVerdictFromGrade(gradeLabel);
+  const resolvedSummary = adminMetadata?.customSummary || summary;
 
   return {
     cautions: uniqueCautions,
-    gradeLabel: profileAssessment.gradeLabel,
+    gradeLabel,
     highlights: uniqueHighlights,
     metrics: buildMetrics(product),
     profileId,
     profileLabel: profileAssessment.profile.label,
     profileSummary: profileAssessment.summary,
     processingLabel,
-    smartScore: profileAssessment.score,
-    summary,
-    verdict: getVerdictFromGrade(profileAssessment.gradeLabel),
+    smartScore,
+    summary: resolvedSummary,
+    verdict,
   };
 }

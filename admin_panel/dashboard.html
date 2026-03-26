@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inqoura Admin Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell" hidden data-admin-root>
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow-pill">Inqoura</p>
+          <h1>Admin Panel</h1>
+          <p>Control products, people, and app behavior from one place.</p>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a data-nav-link="dashboard" href="./dashboard.html">Dashboard</a>
+          <a data-nav-link="products" href="./products.html">Products</a>
+          <a data-nav-link="users" href="./users.html">Users</a>
+          <a data-nav-link="config" href="./config.html">App Config</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="session-card">
+            <p class="eyebrow">Signed in</p>
+            <strong id="sessionName">Admin</strong>
+            <span id="sessionEmail" class="muted">-</span>
+          </div>
+          <button id="logoutButton" class="ghost-button" type="button">Log Out</button>
+        </div>
+      </aside>
+
+      <main class="page-content">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">Overview</p>
+            <h2 id="pageTitle">Dashboard</h2>
+            <p id="pageDescription" class="muted">
+              Track admin-managed content and jump into the right workflow fast.
+            </p>
+          </div>
+          <div class="page-actions">
+            <a class="action-chip" href="./products.html">New product override</a>
+            <a class="action-chip" href="./users.html">Review users</a>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <article class="stat-card">
+            <span class="stat-label">Total users</span>
+            <strong id="totalUsersStat" class="stat-value">0</strong>
+            <span class="muted">Accounts synced in Firestore.</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Premium users</span>
+            <strong id="premiumUsersStat" class="stat-value">0</strong>
+            <span class="muted">Users currently marked premium.</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Admins</span>
+            <strong id="adminUsersStat" class="stat-value">0</strong>
+            <span class="muted">Accounts with elevated access.</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Product overrides</span>
+            <strong id="overrideCountStat" class="stat-value">0</strong>
+            <span class="muted">Products customized beyond Open Food Facts.</span>
+          </article>
+        </section>
+
+        <section class="two-column-grid">
+          <article class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Recent product work</p>
+                <h3>Latest overrides</h3>
+              </div>
+              <a class="inline-link" href="./products.html">Open products</a>
+            </div>
+            <div id="recentOverridesList" class="list-stack"></div>
+          </article>
+
+          <article class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Recent account activity</p>
+                <h3>Recently updated users</h3>
+              </div>
+              <a class="inline-link" href="./users.html">Open users</a>
+            </div>
+            <div id="recentUsersList" class="list-stack"></div>
+          </article>
+        </section>
+
+        <section class="two-column-grid">
+          <article class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Live app settings</p>
+                <h3>Current experience switches</h3>
+              </div>
+              <a class="inline-link" href="./config.html">Edit config</a>
+            </div>
+            <div id="configSummary" class="summary-grid"></div>
+          </article>
+
+          <article class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Fast actions</p>
+                <h3>Common admin jobs</h3>
+              </div>
+            </div>
+            <div class="quick-actions-grid">
+              <a class="quick-action-card" href="./products.html">
+                <strong>Fix a bad product page</strong>
+                <span>Load a barcode, fill missing data, and override verdicts or links.</span>
+              </a>
+              <a class="quick-action-card" href="./users.html">
+                <strong>Upgrade or troubleshoot a user</strong>
+                <span>Adjust role, plan, country, age, and name from one editor.</span>
+              </a>
+              <a class="quick-action-card" href="./config.html">
+                <strong>Update global messaging</strong>
+                <span>Change home announcements, disclaimers, and support contact details.</span>
+              </a>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="/config.js"></script>
+    <script type="module" src="./dashboard.js"></script>
+  </body>
+</html>

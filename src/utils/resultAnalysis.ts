@@ -67,6 +67,8 @@ function getResultAnalysisCacheKey(
     product.nutrition.sugar100g ?? 'sugar-none',
     product.nutrition.salt100g ?? 'salt-none',
     product.ingredientsText ?? 'ingredients-none',
+    product.adminMetadata?.updatedAt ?? 'override-none',
+    product.adminMetadata?.hasCustomAlternatives ? 'custom-alts' : 'rule-alts',
   ].join('|');
 }
 

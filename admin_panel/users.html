@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inqoura Admin Users</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell" hidden data-admin-root>
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow-pill">Inqoura</p>
+          <h1>Admin Panel</h1>
+          <p>Control products, people, and app behavior from one place.</p>
+        </div>
+        <nav class="sidebar-nav">
+          <a data-nav-link="dashboard" href="./dashboard.html">Dashboard</a>
+          <a data-nav-link="products" href="./products.html">Products</a>
+          <a data-nav-link="users" href="./users.html">Users</a>
+          <a data-nav-link="config" href="./config.html">App Config</a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="session-card">
+            <p class="eyebrow">Signed in</p>
+            <strong id="sessionName">Admin</strong>
+            <span id="sessionEmail" class="muted">-</span>
+          </div>
+          <button id="logoutButton" class="ghost-button" type="button">Log Out</button>
+        </div>
+      </aside>
+
+      <main class="page-content">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">Users</p>
+            <h2 id="pageTitle">Accounts and access</h2>
+            <p id="pageDescription" class="muted">
+              Review accounts, search quickly, and adjust plan or role without leaving the browser.
+            </p>
+          </div>
+        </header>
+
+        <section class="stats-grid compact-stats">
+          <article class="stat-card">
+            <span class="stat-label">Shown users</span>
+            <strong id="visibleUsersStat" class="stat-value">0</strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Premium in view</span>
+            <strong id="visiblePremiumStat" class="stat-value">0</strong>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Admins in view</span>
+            <strong id="visibleAdminsStat" class="stat-value">0</strong>
+          </article>
+        </section>
+
+        <section class="two-column-grid users-page-layout">
+          <article class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Directory</p>
+                <h3>Find a user</h3>
+              </div>
+            </div>
+            <div class="filter-row">
+              <input id="userSearchInput" type="text" placeholder="Search by name or email" />
+              <select id="userRoleFilter">
+                <option value="">All roles</option>
+                <option value="user">user</option>
+                <option value="premium">premium</option>
+                <option value="admin">admin</option>
+              </select>
+              <select id="userPlanFilter">
+                <option value="">All plans</option>
+                <option value="free">free</option>
+                <option value="premium">premium</option>
+              </select>
+            </div>
+            <div id="userList" class="user-list"></div>
+          </article>
+
+          <form id="userForm" class="stack">
+            <section class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Editor</p>
+                  <h3>Edit selected user</h3>
+                </div>
+              </div>
+              <div class="form-grid two-up">
+                <label class="field"><span>UID</span><input id="userUid" readonly /></label>
+                <label class="field"><span>Email</span><input id="userEmail" readonly /></label>
+                <label class="field"><span>Name</span><input id="userName" /></label>
+                <label class="field"><span>Age</span><input id="userAge" /></label>
+                <label class="field"><span>Country code</span><input id="userCountryCode" placeholder="US / IN / GB" /></label>
+                <label class="field">
+                  <span>Role</span>
+                  <select id="userRole">
+                    <option value="user">user</option>
+                    <option value="premium">premium</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Plan</span>
+                  <select id="userPlan">
+                    <option value="free">free</option>
+                    <option value="premium">premium</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <div class="sticky-actions">
+              <button id="saveUserButton" type="submit">Save User</button>
+            </div>
+            <div id="userStatus" class="status-panel" aria-live="polite"></div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="/config.js"></script>
+    <script type="module" src="./users.js"></script>
+  </body>
+</html>

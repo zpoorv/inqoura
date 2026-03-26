@@ -24,6 +24,7 @@ import {
   ProductLookupError,
   resolveProductByBarcode,
 } from '../services/productLookup';
+import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import type { RootStackParamList } from '../navigation/types';
 import type { LastScanResult, ScannerState } from '../types/scanner';
 import { normalizeBarcode } from '../utils/barcode';
@@ -111,6 +112,8 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   const [manualBarcodeInput, setManualBarcodeInput] = useState('');
   const [manualEntryError, setManualEntryError] = useState<string | null>(null);
   const [scannerState, setScannerState] = useState<ScannerState>('ready');
+  const [isManualBarcodeEntryEnabled, setIsManualBarcodeEntryEnabled] =
+    useState(true);
   const activeLookupRef = useRef(false);
   const recentScanRef = useRef<{ barcode: string; scannedAt: number } | null>(null);
   const insets = useSafeAreaInsets();
@@ -133,6 +136,24 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     activeLookupRef.current = false;
     recentScanRef.current = null;
   }, [isFocused]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreAdminConfig = async () => {
+      const config = await loadAdminAppConfig();
+
+      if (isMounted) {
+        setIsManualBarcodeEntryEnabled(config.enableManualBarcodeEntry);
+      }
+    };
+
+    void restoreAdminConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isFocused) {
@@ -346,18 +367,20 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
               </View>
             )}
 
-            <ManualBarcodeEntry
-              disabled={isLookupInFlight}
-              errorMessage={manualEntryError}
-              onChangeText={(value) => {
-                setManualBarcodeInput(value);
-                if (manualEntryError) {
-                  setManualEntryError(null);
-                }
-              }}
-              onSubmit={handleManualLookup}
-              value={manualBarcodeInput}
-            />
+            {isManualBarcodeEntryEnabled ? (
+              <ManualBarcodeEntry
+                disabled={isLookupInFlight}
+                errorMessage={manualEntryError}
+                onChangeText={(value) => {
+                  setManualBarcodeInput(value);
+                  if (manualEntryError) {
+                    setManualEntryError(null);
+                  }
+                }}
+                onSubmit={handleManualLookup}
+                value={manualBarcodeInput}
+              />
+            ) : null}
           </View>
 
           <View style={styles.statusCard}>

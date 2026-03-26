@@ -12,6 +12,7 @@ export type ProductSuggestion = {
   id: string;
   issue: string;
   title: string;
+  url?: string | null;
 };
 
 export type ProductSuggestionContext = {
@@ -146,6 +147,16 @@ export function getAlternativeProductSuggestions(
   insights: ProductInsights = analyzeProduct(product, profileId),
   provider: ProductSuggestionProvider = ruleBasedProductSuggestionProvider
 ) {
+  if (product.adminMetadata?.hasCustomAlternatives) {
+    return product.adminMetadata.healthierAlternatives.map((item, index) => ({
+      description: item.description,
+      id: `admin-alt-${index + 1}`,
+      issue: 'admin pick',
+      title: item.label,
+      url: item.url,
+    }));
+  }
+
   if (!isLikelyFoodProduct(product)) {
     return [];
   }

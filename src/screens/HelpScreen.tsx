@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppTheme } from '../components/AppThemeProvider';
+import { SUPPORT_EMAIL } from '../constants/branding';
+import { loadAdminAppConfig } from '../services/adminAppConfigService';
 
 const HELP_ITEMS = [
   'Barcode scans fetch product data from Open Food Facts when available.',
@@ -14,6 +16,29 @@ const HELP_ITEMS = [
 export default function HelpScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [supportEmail, setSupportEmail] = useState(SUPPORT_EMAIL);
+  const [supportMessage, setSupportMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreAdminConfig = async () => {
+      const config = await loadAdminAppConfig();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setSupportEmail(config.supportEmail || SUPPORT_EMAIL);
+      setSupportMessage(config.resultSupportMessage);
+    };
+
+    void restoreAdminConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -27,6 +52,13 @@ export default function HelpScreen() {
               <Text style={styles.itemText}>{item}</Text>
             </View>
           ))}
+          <View style={styles.item}>
+            <View style={styles.dot} />
+            <Text style={styles.itemText}>
+              Support email: {supportEmail}
+              {supportMessage ? ` — ${supportMessage}` : ''}
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>

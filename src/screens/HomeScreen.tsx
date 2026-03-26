@@ -19,6 +19,7 @@ import {
   markDietProfileIntroSeen,
   saveDietProfile,
 } from '../services/dietProfileStorage';
+import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import { getAuthSession, subscribeAuthSession } from '../store';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -51,6 +52,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [accountDisplayName, setAccountDisplayName] = useState(
     getAuthSession().user?.displayName ?? ''
   );
+  const [adminAnnouncement, setAdminAnnouncement] = useState<{
+    body: string | null;
+    title: string | null;
+  } | null>(null);
+  const [isHistoryEnabled, setIsHistoryEnabled] = useState(true);
+  const [isIngredientOcrEnabled, setIsIngredientOcrEnabled] = useState(true);
   const [isFirstLaunchProfileFlow, setIsFirstLaunchProfileFlow] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 
@@ -110,6 +117,31 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreAdminConfig = async () => {
+      const config = await loadAdminAppConfig();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setAdminAnnouncement({
+        body: config.homeAnnouncementBody,
+        title: config.homeAnnouncementTitle,
+      });
+      setIsHistoryEnabled(config.enableHistory);
+      setIsIngredientOcrEnabled(config.enableIngredientOcr);
+    };
+
+    void restoreAdminConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleApplyProfile = async () => {
     setSelectedProfileId(draftProfileId);
     setIsProfileModalVisible(false);
@@ -144,8 +176,30 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </Text>
             </View>
 
+            {adminAnnouncement?.title || adminAnnouncement?.body ? (
+              <View style={styles.announcementCard}>
+                <Text style={styles.announcementLabel}>Live Announcement</Text>
+                {adminAnnouncement.title ? (
+                  <Text style={styles.announcementTitle}>
+                    {adminAnnouncement.title}
+                  </Text>
+                ) : null}
+                {adminAnnouncement.body ? (
+                  <Text style={styles.announcementText}>
+                    {adminAnnouncement.body}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
             <View style={styles.featureCard}>
-              {HOME_FEATURES.map((feature) => (
+              {HOME_FEATURES.filter((feature) =>
+                feature.includes('Ingredient label OCR')
+                  ? isIngredientOcrEnabled
+                  : feature.includes('Saved scan history')
+                    ? isHistoryEnabled
+                    : true
+              ).map((feature) => (
                 <View key={feature} style={styles.featureRow}>
                   <View style={styles.featureDot} />
                   <Text style={styles.featureText}>{feature}</Text>
@@ -182,22 +236,26 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   navigation.navigate('Scanner', { profileId: selectedProfileId })
                 }
               />
-              <Pressable
-                onPress={() =>
-                  navigation.navigate('IngredientOcr', {
-                    profileId: selectedProfileId,
-                  })
-                }
-                style={styles.secondaryAction}
-              >
-                <Text style={styles.secondaryActionText}>Scan Ingredient Label</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => navigation.navigate('History')}
-                style={styles.secondaryAction}
-              >
-                <Text style={styles.secondaryActionText}>View Scan History</Text>
-              </Pressable>
+              {isIngredientOcrEnabled ? (
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('IngredientOcr', {
+                      profileId: selectedProfileId,
+                    })
+                  }
+                  style={styles.secondaryAction}
+                >
+                  <Text style={styles.secondaryActionText}>Scan Ingredient Label</Text>
+                </Pressable>
+              ) : null}
+              {isHistoryEnabled ? (
+                <Pressable
+                  onPress={() => navigation.navigate('History')}
+                  style={styles.secondaryAction}
+                >
+                  <Text style={styles.secondaryActionText}>View Scan History</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={() => navigation.navigate('Settings')}
                 style={styles.secondaryAction}
@@ -223,6 +281,31 @@ const createStyles = (
   colors: ReturnType<typeof useAppTheme>['colors']
 ) =>
   StyleSheet.create({
+  announcementCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 8,
+    padding: 18,
+  },
+  announcementLabel: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  announcementText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  announcementTitle: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
   accountCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

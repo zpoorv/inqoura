@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inqoura Admin App Config</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell" hidden data-admin-root>
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow-pill">Inqoura</p>
+          <h1>Admin Panel</h1>
+          <p>Control products, people, and app behavior from one place.</p>
+        </div>
+        <nav class="sidebar-nav">
+          <a data-nav-link="dashboard" href="./dashboard.html">Dashboard</a>
+          <a data-nav-link="products" href="./products.html">Products</a>
+          <a data-nav-link="users" href="./users.html">Users</a>
+          <a data-nav-link="config" href="./config.html">App Config</a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="session-card">
+            <p class="eyebrow">Signed in</p>
+            <strong id="sessionName">Admin</strong>
+            <span id="sessionEmail" class="muted">-</span>
+          </div>
+          <button id="logoutButton" class="ghost-button" type="button">Log Out</button>
+        </div>
+      </aside>
+
+      <main class="page-content">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">App Config</p>
+            <h2 id="pageTitle">Global app behavior</h2>
+            <p id="pageDescription" class="muted">
+              Control what users see without shipping a new app build.
+            </p>
+          </div>
+        </header>
+
+        <form id="configForm" class="stack">
+          <section class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Feature switches</p>
+                <h3>Enable or hide major flows</h3>
+              </div>
+            </div>
+            <div class="toggle-grid">
+              <label class="toggle-card">
+                <input id="configEnableRuleBasedSuggestions" type="checkbox" />
+                <span>
+                  <strong>Rule-based alternatives</strong>
+                  <small>Show fallback suggestions when no admin alternatives are saved.</small>
+                </span>
+              </label>
+              <label class="toggle-card">
+                <input id="configShowSourceAttribution" type="checkbox" />
+                <span>
+                  <strong>Source attribution</strong>
+                  <small>Show product-source notes on the result screen.</small>
+                </span>
+              </label>
+              <label class="toggle-card">
+                <input id="configEnableHistory" type="checkbox" />
+                <span>
+                  <strong>Scan history</strong>
+                  <small>Show the saved-history entry point on mobile.</small>
+                </span>
+              </label>
+              <label class="toggle-card">
+                <input id="configEnableIngredientOcr" type="checkbox" />
+                <span>
+                  <strong>Ingredient OCR</strong>
+                  <small>Show the label-photo flow on the home screen.</small>
+                </span>
+              </label>
+              <label class="toggle-card">
+                <input id="configEnableManualBarcodeEntry" type="checkbox" />
+                <span>
+                  <strong>Manual barcode entry</strong>
+                  <small>Keep the typed barcode fallback visible on the scanner page.</small>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Home surface</p>
+                <h3>Announcement banner</h3>
+              </div>
+            </div>
+            <div class="form-grid two-up">
+              <label class="field">
+                <span>Announcement title</span>
+                <input id="configHomeAnnouncementTitle" placeholder="Seasonal message or maintenance note" />
+              </label>
+              <label class="field">
+                <span>Support email</span>
+                <input id="configSupportEmail" placeholder="support@inqoura.app" />
+              </label>
+            </div>
+            <label class="field">
+              <span>Announcement body</span>
+              <textarea id="configHomeAnnouncementBody" placeholder="Short message shown on the mobile home screen"></textarea>
+            </label>
+          </section>
+
+          <section class="panel-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Result experience</p>
+                <h3>Trust and explanation copy</h3>
+              </div>
+            </div>
+            <label class="field">
+              <span>Result disclaimer</span>
+              <textarea id="configResultDisclaimer" placeholder="Short plain-language disclaimer for result pages"></textarea>
+            </label>
+            <label class="field">
+              <span>Share footer</span>
+              <textarea id="configShareFooterText" placeholder="Short footer shown on share cards"></textarea>
+            </label>
+            <label class="field">
+              <span>Help message</span>
+              <textarea id="configResultSupportMessage" placeholder="Extra support or context line shown in help/feedback surfaces"></textarea>
+            </label>
+          </section>
+
+          <div class="sticky-actions">
+            <button id="saveConfigButton" type="submit">Save App Config</button>
+          </div>
+          <div id="configStatus" class="status-panel" aria-live="polite"></div>
+        </form>
+      </main>
+    </div>
+
+    <script src="/config.js"></script>
+    <script type="module" src="./config-page.js"></script>
+  </body>
+</html>

@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inqoura Admin Products</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="admin-shell" hidden data-admin-root>
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow-pill">Inqoura</p>
+          <h1>Admin Panel</h1>
+          <p>Control products, people, and app behavior from one place.</p>
+        </div>
+        <nav class="sidebar-nav">
+          <a data-nav-link="dashboard" href="./dashboard.html">Dashboard</a>
+          <a data-nav-link="products" href="./products.html">Products</a>
+          <a data-nav-link="users" href="./users.html">Users</a>
+          <a data-nav-link="config" href="./config.html">App Config</a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="session-card">
+            <p class="eyebrow">Signed in</p>
+            <strong id="sessionName">Admin</strong>
+            <span id="sessionEmail" class="muted">-</span>
+          </div>
+          <button id="logoutButton" class="ghost-button" type="button">Log Out</button>
+        </div>
+      </aside>
+
+      <main class="page-content">
+        <header class="page-header">
+          <div>
+            <p class="eyebrow">Products</p>
+            <h2 id="pageTitle">Product overrides</h2>
+            <p id="pageDescription" class="muted">
+              Fetch from Open Food Facts first, then fill gaps or override any field that needs a cleaner result.
+            </p>
+          </div>
+          <div class="page-actions">
+            <button id="clearProductFormButton" class="ghost-button" type="button">Clear draft</button>
+          </div>
+        </header>
+
+        <section class="panel-card">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Lookup</p>
+              <h3>Start with a barcode</h3>
+            </div>
+          </div>
+          <div class="search-row">
+            <input id="barcodeInput" type="text" placeholder="Enter barcode number" />
+            <button id="loadProductButton" type="button">Load Product</button>
+          </div>
+          <div id="productStatus" class="status-panel" aria-live="polite"></div>
+          <div id="productSource" class="inline-info"></div>
+        </section>
+
+        <section class="two-column-grid product-layout">
+          <article class="panel-card product-preview-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Preview</p>
+                <h3>What the app will see</h3>
+              </div>
+            </div>
+            <div class="product-preview">
+              <div id="productImagePreview" class="image-preview image-placeholder">No image yet</div>
+              <div class="stack-tight">
+                <strong id="previewName">No product loaded</strong>
+                <span id="previewBrand" class="muted">Brand will appear here</span>
+                <span id="previewScore" class="badge">No admin score override</span>
+                <span id="previewAlternatives" class="muted">No healthier alternatives saved yet.</span>
+              </div>
+            </div>
+          </article>
+
+          <form id="productForm" class="stack">
+            <section class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Identity</p>
+                  <h3>Core product data</h3>
+                </div>
+              </div>
+              <div class="form-grid two-up">
+                <label class="field">
+                  <span>Product name</span>
+                  <input id="productName" placeholder="Product name" />
+                </label>
+                <label class="field">
+                  <span>Brand</span>
+                  <input id="productBrand" placeholder="Brand name" />
+                </label>
+                <label class="field">
+                  <span>Image URL</span>
+                  <input id="productImageUrl" placeholder="https://..." />
+                </label>
+                <label class="field">
+                  <span>Quantity</span>
+                  <input id="productQuantity" placeholder="e.g. 250 g" />
+                </label>
+                <label class="field">
+                  <span>Name reason</span>
+                  <input id="productNameReason" placeholder="Why this product name was corrected" />
+                </label>
+                <label class="field">
+                  <span>Source note</span>
+                  <input id="productSourceNote" placeholder="Why this override exists" />
+                </label>
+              </div>
+            </section>
+
+            <section class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Ingredients</p>
+                  <h3>Label, categories, and additives</h3>
+                </div>
+              </div>
+              <div class="form-grid two-up">
+                <label class="field">
+                  <span>Categories</span>
+                  <input id="productCategories" placeholder="Comma separated" />
+                </label>
+                <label class="field">
+                  <span>Labels</span>
+                  <input id="productLabels" placeholder="Comma separated" />
+                </label>
+                <label class="field">
+                  <span>Allergens</span>
+                  <input id="productAllergens" placeholder="Comma separated" />
+                </label>
+                <label class="field">
+                  <span>Additives</span>
+                  <input id="productAdditives" placeholder="Comma separated" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Ingredients text</span>
+                <textarea id="productIngredients" placeholder="Paste or correct the ingredient list"></textarea>
+              </label>
+            </section>
+
+            <section class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Nutrition</p>
+                  <h3>Per 100g values</h3>
+                </div>
+              </div>
+              <div class="form-grid three-up">
+                <label class="field"><span>Calories</span><input id="calories100g" placeholder="0" /></label>
+                <label class="field"><span>Sugar</span><input id="sugar100g" placeholder="0" /></label>
+                <label class="field"><span>Salt</span><input id="salt100g" placeholder="0" /></label>
+                <label class="field"><span>Saturated fat</span><input id="saturatedFat100g" placeholder="0" /></label>
+                <label class="field"><span>Protein</span><input id="protein100g" placeholder="0" /></label>
+                <label class="field"><span>Fiber</span><input id="fiber100g" placeholder="0" /></label>
+              </div>
+            </section>
+
+            <section class="panel-card">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Admin controls</p>
+                  <h3>Custom score, verdict, and alternatives</h3>
+                </div>
+              </div>
+              <div class="form-grid two-up">
+                <label class="field">
+                  <span>Admin score</span>
+                  <input id="productAdminScore" placeholder="0-100" />
+                </label>
+                <label class="field">
+                  <span>Admin grade</span>
+                  <select id="productAdminGradeLabel">
+                    <option value="">No override</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="F">F</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span>Admin summary</span>
+                <textarea id="productAdminSummary" placeholder="Short plain-language summary used on the result page"></textarea>
+              </label>
+              <label class="field">
+                <span>Admin verdict</span>
+                <textarea id="productAdminVerdict" placeholder="Strong choice / occasional use / not ideal for frequent use"></textarea>
+              </label>
+              <label class="field">
+                <span>Healthier alternatives</span>
+                <textarea id="productAlternatives" placeholder="One per line: Label | Description | URL"></textarea>
+              </label>
+              <label class="field">
+                <span>Admin notes</span>
+                <textarea id="productNotes" placeholder="Internal note for why this product was changed"></textarea>
+              </label>
+            </section>
+
+            <div class="sticky-actions">
+              <button id="saveProductButton" type="submit">Save Override</button>
+              <button id="deleteProductButton" type="button" class="danger-button">Delete Override</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="/config.js"></script>
+    <script type="module" src="./products.js"></script>
+  </body>
+</html>

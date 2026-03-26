@@ -29,6 +29,7 @@ import {
 import type { RootStackParamList } from '../navigation/types';
 import type { ProductSourceInfo } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
+import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import { loadDietProfile } from '../services/dietProfileStorage';
 import { saveScanToHistory } from '../services/scanHistoryStorage';
 import { getGradeTone } from '../utils/gradeTone';
@@ -217,6 +218,12 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const [hasResolvedProfile, setHasResolvedProfile] = useState(
     Boolean(route.params.profileId)
   );
+  const [adminConfig, setAdminConfig] = useState<{
+    enableRuleBasedSuggestions: boolean;
+    resultDisclaimer: string | null;
+    shareFooterText: string | null;
+    showSourceAttribution: boolean;
+  } | null>(null);
   const [analysisResult, setAnalysisResult] = useState<ResultAnalysis | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<DietProfileId>(
     route.params.profileId || DEFAULT_DIET_PROFILE_ID
@@ -243,7 +250,25 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const scanCompletionCopy = getScanCompletionCopy(resultSource);
   const insights = analysisResult?.insights ?? null;
   const ingredientAnalysis = analysisResult?.ingredientAnalysis ?? null;
-  const alternativeSuggestions = analysisResult?.suggestions ?? [];
+  const alternativeSuggestions = useMemo(
+    () => analysisResult?.suggestions ?? [],
+    [analysisResult?.suggestions]
+  );
+  const displayedSuggestions = useMemo(() => {
+    if (
+      adminConfig &&
+      adminConfig.enableRuleBasedSuggestions === false &&
+      !product.adminMetadata?.hasCustomAlternatives
+    ) {
+      return [];
+    }
+
+    return alternativeSuggestions;
+  }, [
+    adminConfig,
+    alternativeSuggestions,
+    product.adminMetadata?.hasCustomAlternatives,
+  ]);
   const healthScoreTheme = useMemo(
     () => getHealthScoreTheme(insights?.smartScore ?? null),
     [insights?.smartScore]
@@ -267,6 +292,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     () => getSourceAttributionText(product?.sources, resultSource),
     [product?.sources, resultSource]
   );
+  const disclaimerText =
+    adminConfig?.resultDisclaimer ||
+    'Quick food-information guide only, not medical advice.';
+  const showSourceAttribution = adminConfig?.showSourceAttribution ?? true;
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: displayProductName });
@@ -296,6 +325,31 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       isMounted = false;
     };
   }, [route.params.profileId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreAdminConfig = async () => {
+      const config = await loadAdminAppConfig();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setAdminConfig({
+        enableRuleBasedSuggestions: config.enableRuleBasedSuggestions,
+        resultDisclaimer: config.resultDisclaimer,
+        shareFooterText: config.shareFooterText,
+        showSourceAttribution: config.showSourceAttribution,
+      });
+    };
+
+    void restoreAdminConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     setAnalysisResult(null);
@@ -412,6 +466,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             >
               <ShareResultCard
                 data={shareableResult}
+                footerText={adminConfig?.shareFooterText ?? null}
               />
             </ViewShot>
           </View>
@@ -537,11 +592,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
               ) : null}
 
               <View style={styles.trustBlock}>
-                <Text style={styles.trustLabel}>Source</Text>
-                <Text style={styles.trustText}>{sourceAttributionText}</Text>
-                <Text style={styles.disclaimerText}>
-                  Quick food-information guide only, not medical advice.
-                </Text>
+                {showSourceAttribution ? (
+                  <>
+                    <Text style={styles.trustLabel}>Source</Text>
+                    <Text style={styles.trustText}>{sourceAttributionText}</Text>
+                  </>
+                ) : null}
+                <Text style={styles.disclaimerText}>{disclaimerText}</Text>
               </View>
             </>
           ) : (
@@ -550,9 +607,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
               <Text style={styles.scoreHeroSummary}>
                 Health scoring is only shown for edible food and drink products.
               </Text>
-              <Text style={styles.disclaimerText}>
-                Quick product-information guide only, not medical advice.
-              </Text>
+              <Text style={styles.disclaimerText}>{disclaimerText}</Text>
             </View>
           )}
         </View>
@@ -616,7 +671,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         {!analysisResult ? (
           <ResultCardSkeleton />
         ) : (
-          <ProductSuggestionsCard suggestions={alternativeSuggestions} />
+          <ProductSuggestionsCard suggestions={displayedSuggestions} />
         )}
 
         <View style={styles.infoCard}>
@@ -766,29 +821,31 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           ) : null}
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.label}>Data Sources</Text>
-          {product?.sources?.length ? (
-            product.sources.map((source) => (
-              <View key={source.id} style={styles.sourceRow}>
-                <View
-                  style={[
-                    styles.sourceDot,
-                    { backgroundColor: getSourceTone(source.status) },
-                  ]}
-                />
-                <View style={styles.sourceTextBlock}>
-                  <Text style={styles.sourceTitle}>{source.label}</Text>
-                  <Text style={styles.statusText}>{source.note}</Text>
+        {showSourceAttribution ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.label}>Data Sources</Text>
+            {product?.sources?.length ? (
+              product.sources.map((source) => (
+                <View key={source.id} style={styles.sourceRow}>
+                  <View
+                    style={[
+                      styles.sourceDot,
+                      { backgroundColor: getSourceTone(source.status) },
+                    ]}
+                  />
+                  <View style={styles.sourceTextBlock}>
+                    <Text style={styles.sourceTitle}>{source.label}</Text>
+                    <Text style={styles.statusText}>{source.note}</Text>
+                  </View>
                 </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.statusText}>
-              Source details will appear after a successful lookup.
-            </Text>
-          )}
-        </View>
+              ))
+            ) : (
+              <Text style={styles.statusText}>
+                Source details will appear after a successful lookup.
+              </Text>
+            )}
+          </View>
+        ) : null}
       </ScrollView>
       {shareableResult ? (
         <Pressable

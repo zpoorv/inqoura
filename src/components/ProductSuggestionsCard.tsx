@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../constants/colors';
 import type { ProductSuggestion } from '../utils/productSuggestions';
@@ -14,13 +14,20 @@ export default function ProductSuggestionsCard({
     return null;
   }
 
+  const hasAdminSuggestions = suggestions.some(
+    (suggestion) => suggestion.issue === 'admin pick'
+  );
+
   return (
     <View style={styles.card}>
       <Text style={styles.label}>Better Alternatives</Text>
-      <Text style={styles.title}>What to look for next time</Text>
+      <Text style={styles.title}>
+        {hasAdminSuggestions ? 'Admin-picked alternatives' : 'What to look for next time'}
+      </Text>
       <Text style={styles.subtitle}>
-        These are rule-based improvement ideas for similar products and can later
-        be replaced by real catalog suggestions.
+        {hasAdminSuggestions
+          ? 'These links were added by an Inqoura admin for this product.'
+          : 'These are rule-based improvement ideas for similar products and can later be replaced by real catalog suggestions.'}
       </Text>
 
       <View style={styles.list}>
@@ -31,6 +38,11 @@ export default function ProductSuggestionsCard({
             </View>
             <Text style={styles.itemTitle}>{suggestion.title}</Text>
             <Text style={styles.itemDescription}>{suggestion.description}</Text>
+            {suggestion.url ? (
+              <Pressable onPress={() => void Linking.openURL(suggestion.url || '')}>
+                <Text style={styles.link}>Open Link</Text>
+              </Pressable>
+            ) : null}
           </View>
         ))}
       </View>
@@ -77,6 +89,11 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     lineHeight: 22,
+  },
+  link: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
   },
   label: {
     color: colors.primary,

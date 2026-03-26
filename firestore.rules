@@ -10,8 +10,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function hasAdminRoleDocument() {
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == request.auth.token.email;
+    }
+
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn()
+        && (request.auth.token.admin == true || hasAdminRoleDocument());
     }
 
     function isOwnerProfileCreate(uid) {
@@ -45,6 +54,11 @@ service cloud.firestore {
 
     // Admin-authored product overrides can replace or enrich Open Food Facts data.
     match /productOverrides/{barcode} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /adminConfig/{configId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }

@@ -7,6 +7,7 @@ import type { ShareableResultData } from '../utils/shareableResult';
 
 type ShareResultCardProps = {
   data: ShareableResultData;
+  footerText?: string | null;
   onImageLoadEnd?: () => void;
 };
 
@@ -54,6 +55,7 @@ function getShareTheme(gradeLabel: string) {
 
 export default function ShareResultCard({
   data,
+  footerText,
   onImageLoadEnd,
 }: ShareResultCardProps) {
   const scoreTheme = getShareTheme(data.gradeLabel);
@@ -151,8 +153,8 @@ export default function ShareResultCard({
         )}
 
         <Text style={styles.footnote}>
-          Quick scan summary for social sharing. Review the full product page for
-          context.
+          {footerText ||
+            'Quick scan summary for social sharing. Review the full product page for context.'}
         </Text>
       </View>
     </View>

@@ -1,6 +1,9 @@
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 
-import type { ProductOverrideRecord } from '../models/productOverride';
+import type {
+  ProductOverrideLink,
+  ProductOverrideRecord,
+} from '../models/productOverride';
 import type { ProductSourceInfo, ResolvedProduct } from '../types/product';
 import { getFirebaseAppInstance } from './firebaseApp';
 
@@ -17,6 +20,20 @@ function getOverrideDocRef(barcode: string) {
 
 function sanitizeStringArray(value: string[] | null | undefined) {
   return (value ?? []).map((item) => item.trim()).filter(Boolean);
+}
+
+function sanitizeAlternativeLinks(value: ProductOverrideLink[] | null | undefined) {
+  return (value ?? [])
+    .map((item) => ({
+      description: item.description?.trim() || '',
+      label: item.label?.trim() || '',
+      url: item.url?.trim() || '',
+    }))
+    .filter((item) => item.label && item.description && item.url);
+}
+
+function hasCustomAlternativesField(override: ProductOverrideRecord) {
+  return Object.prototype.hasOwnProperty.call(override, 'healthierAlternatives');
 }
 
 function mergeNutrition(
@@ -85,6 +102,20 @@ export function applyProductOverride(
     return {
       additiveCount: sanitizeStringArray(override.additiveTags).length,
       additiveTags: sanitizeStringArray(override.additiveTags),
+      adminMetadata: {
+        customGradeLabel: override.adminGradeLabel ?? null,
+        customScore: override.adminScore ?? null,
+        customSummary: override.adminSummary?.trim() || null,
+        customVerdict: override.adminVerdict?.trim() || null,
+        hasCustomAlternatives: hasCustomAlternativesField(override),
+        hasManagedData: true,
+        healthierAlternatives: sanitizeAlternativeLinks(
+          override.healthierAlternatives
+        ),
+        notes: override.notes?.trim() || null,
+        sourceNote: override.sourceNote?.trim() || null,
+        updatedAt: override.updatedAt?.trim() || null,
+      },
       allergens: sanitizeStringArray(override.allergens),
       barcode: override.barcode,
       brand: override.brand?.trim() || null,
@@ -117,6 +148,23 @@ export function applyProductOverride(
     ...product,
     additiveCount: additiveTags.length > 0 ? additiveTags.length : product.additiveCount,
     additiveTags: additiveTags.length > 0 ? additiveTags : product.additiveTags,
+    adminMetadata: {
+      customGradeLabel:
+        override.adminGradeLabel ?? product.adminMetadata?.customGradeLabel ?? null,
+      customScore: override.adminScore ?? product.adminMetadata?.customScore ?? null,
+      customSummary:
+        override.adminSummary?.trim() || product.adminMetadata?.customSummary || null,
+      customVerdict:
+        override.adminVerdict?.trim() || product.adminMetadata?.customVerdict || null,
+      hasCustomAlternatives: hasCustomAlternativesField(override),
+      hasManagedData: true,
+      healthierAlternatives: sanitizeAlternativeLinks(
+        override.healthierAlternatives
+      ),
+      notes: override.notes?.trim() || product.adminMetadata?.notes || null,
+      sourceNote: override.sourceNote?.trim() || product.adminMetadata?.sourceNote || null,
+      updatedAt: override.updatedAt?.trim() || product.adminMetadata?.updatedAt || null,
+    },
     allergens:
       sanitizeStringArray(override.allergens).length > 0
         ? sanitizeStringArray(override.allergens)
