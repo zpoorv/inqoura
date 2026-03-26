@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../constants/colors';
+import { useAppTheme } from './AppThemeProvider';
 import { AuthServiceError } from '../services/authHelpers';
 import { signInWithGoogleIdToken } from '../services/authService';
 import {
@@ -21,6 +21,8 @@ type GoogleSignInButtonProps = {
 export default function GoogleSignInButton({
   label = 'Continue with Google',
 }: GoogleSignInButtonProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -81,36 +83,39 @@ export default function GoogleSignInButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: 999,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 54,
-    paddingHorizontal: 20,
-    width: '100%',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  buttonText: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  errorText: {
-    color: colors.danger,
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  wrapper: {
-    gap: 10,
-  },
-});
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      justifyContent: 'center',
+      minHeight: 54,
+      paddingHorizontal: 20,
+      width: '100%',
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonPressed: {
+      opacity: 0.9,
+    },
+    buttonText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    errorText: {
+      color: colors.danger,
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 18,
+    },
+    wrapper: {
+      gap: 10,
+    },
+  });

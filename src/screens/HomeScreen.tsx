@@ -1,12 +1,12 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '../components/AppThemeProvider';
 import DietProfileModal from '../components/DietProfileModal';
 import PrimaryButton from '../components/PrimaryButton';
 import { APP_NAME } from '../constants/branding';
-import { colors } from '../constants/colors';
 import {
   DEFAULT_DIET_PROFILE_ID,
   DIET_PROFILE_DEFINITIONS,
@@ -19,7 +19,6 @@ import {
   markDietProfileIntroSeen,
   saveDietProfile,
 } from '../services/dietProfileStorage';
-import { logoutAuth } from '../services/authService';
 import { getAuthSession, subscribeAuthSession } from '../store';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -34,6 +33,8 @@ const HOME_FEATURES = [
 
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [selectedProfileId, setSelectedProfileId] = useState<DietProfileId>(
     DEFAULT_DIET_PROFILE_ID
   );
@@ -61,22 +62,18 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
-          accessibilityLabel="Open diet profile"
-          onPress={() => {
-            setDraftProfileId(selectedProfileId);
-            setIsFirstLaunchProfileFlow(false);
-            setIsProfileModalVisible(true);
-          }}
+          accessibilityLabel="Open settings"
+          onPress={() => navigation.navigate('Settings')}
           style={({ pressed }) => [
             styles.headerProfileButton,
             pressed && styles.headerProfileButtonPressed,
           ]}
         >
-          <Text style={styles.headerProfileButtonText}>Profile</Text>
+          <Text style={styles.headerProfileButtonText}>Settings</Text>
         </Pressable>
       ),
     });
-  }, [navigation, selectedProfileId]);
+  }, [navigation, styles, selectedProfileId]);
 
   useEffect(() => {
     const unsubscribe = subscribeAuthSession((session) => {
@@ -202,10 +199,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={styles.secondaryActionText}>View Scan History</Text>
               </Pressable>
               <Pressable
-                onPress={() => void logoutAuth()}
+                onPress={() => navigation.navigate('Settings')}
                 style={styles.secondaryAction}
               >
-                <Text style={styles.secondaryActionText}>Log Out</Text>
+                <Text style={styles.secondaryActionText}>Open Settings</Text>
               </Pressable>
             </View>
           </View>
@@ -222,7 +219,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
   accountCard: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

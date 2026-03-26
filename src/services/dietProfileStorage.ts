@@ -46,3 +46,12 @@ export async function loadDietProfileIntroSeen() {
 export async function markDietProfileIntroSeen() {
   await AsyncStorage.setItem(DIET_PROFILE_INTRO_SEEN_STORAGE_KEY, 'true');
 }
+
+export async function clearDietProfile() {
+  await AsyncStorage.removeItem(DIET_PROFILE_STORAGE_KEY);
+  setSessionDietProfile(DEFAULT_DIET_PROFILE_ID);
+}
+
+export async function clearDietProfileIntroSeen() {
+  await AsyncStorage.removeItem(DIET_PROFILE_INTRO_SEEN_STORAGE_KEY);
+}

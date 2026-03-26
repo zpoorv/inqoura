@@ -3,8 +3,8 @@ import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
+import { useAppTheme } from '../components/AppThemeProvider';
 import { APP_NAME } from '../constants/branding';
-import { colors } from '../constants/colors';
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import { hydrateAuthSession } from '../services/authService';
@@ -22,22 +22,23 @@ import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    background: colors.background,
-    border: colors.border,
-    card: colors.surface,
-    notification: colors.primary,
-    primary: colors.primary,
-    text: colors.text,
-  },
-};
-
 export default function RootNavigator() {
   const [authSession, setAuthSession] = useState(getAuthSession());
   const [isHandlingEmailLink, setIsHandlingEmailLink] = useState(false);
+  const { colors } = useAppTheme();
+
+  const navigationTheme = {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: colors.background,
+      border: colors.border,
+      card: colors.surface,
+      notification: colors.primary,
+      primary: colors.primary,
+      text: colors.text,
+    },
+  };
 
   useEffect(() => {
     const unsubscribe = subscribeAuthSession(setAuthSession);
@@ -115,6 +116,16 @@ export default function RootNavigator() {
               options={{ title: APP_NAME }}
             />
             <Stack.Screen
+              name="Settings"
+              getComponent={() => require('../screens/SettingsScreen').default}
+              options={{ title: 'Settings' }}
+            />
+            <Stack.Screen
+              name="ProfileDetails"
+              getComponent={() => require('../screens/ProfileDetailsScreen').default}
+              options={{ title: 'Profile' }}
+            />
+            <Stack.Screen
               name="History"
               getComponent={() => require('../screens/HistoryScreen').default}
               options={{ title: 'Scan History' }}
@@ -133,6 +144,26 @@ export default function RootNavigator() {
               name="Result"
               component={ResultScreen}
               options={{ title: 'Product Details' }}
+            />
+            <Stack.Screen
+              name="Help"
+              getComponent={() => require('../screens/HelpScreen').default}
+              options={{ title: 'Help' }}
+            />
+            <Stack.Screen
+              name="PrivacyPolicy"
+              getComponent={() => require('../screens/PrivacyPolicyScreen').default}
+              options={{ title: 'Privacy Policy' }}
+            />
+            <Stack.Screen
+              name="About"
+              getComponent={() => require('../screens/AboutScreen').default}
+              options={{ title: 'About' }}
+            />
+            <Stack.Screen
+              name="Feedback"
+              getComponent={() => require('../screens/FeedbackScreen').default}
+              options={{ title: 'Send Feedback' }}
             />
           </>
         ) : (
@@ -160,6 +191,9 @@ export default function RootNavigator() {
 }
 
 function AuthBootstrapScreen() {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
+
   return (
     <View style={styles.bootstrapScreen}>
       <ActivityIndicator color={colors.primary} size="large" />
@@ -168,17 +202,20 @@ function AuthBootstrapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  bootstrapScreen: {
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    flex: 1,
-    gap: 14,
-    justifyContent: 'center',
-  },
-  bootstrapText: {
-    color: colors.textMuted,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
+    bootstrapScreen: {
+      alignItems: 'center',
+      backgroundColor: colors.background,
+      flex: 1,
+      gap: 14,
+      justifyContent: 'center',
+    },
+    bootstrapText: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+  });

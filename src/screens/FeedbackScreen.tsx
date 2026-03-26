@@ -1,0 +1,95 @@
+import { useMemo, useState } from 'react';
+import { Linking, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useAppTheme } from '../components/AppThemeProvider';
+import PrimaryButton from '../components/PrimaryButton';
+import { APP_NAME, SUPPORT_EMAIL } from '../constants/branding';
+
+export default function FeedbackScreen() {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const [message, setMessage] = useState('');
+
+  const handleSendFeedback = async () => {
+    const subject = encodeURIComponent(`${APP_NAME} feedback`);
+    const body = encodeURIComponent(message || 'Shared from the Inqoura feedback screen.');
+
+    await Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`);
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.eyebrow}>Feedback</Text>
+        <Text style={styles.title}>Tell us what to improve</Text>
+        <View style={styles.card}>
+          <Text style={styles.subtitle}>
+            This sends feedback through your mail app so nothing gets stuck in the device.
+          </Text>
+          <TextInput
+            multiline
+            onChangeText={setMessage}
+            placeholder="Share bugs, missing features, or ideas..."
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            textAlignVertical="top"
+            value={message}
+          />
+          <PrimaryButton label="Send Feedback" onPress={() => void handleSendFeedback()} />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 24,
+      borderWidth: 1,
+      gap: 16,
+      padding: 20,
+    },
+    content: {
+      gap: 20,
+      padding: 24,
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      color: colors.text,
+      fontSize: 15,
+      minHeight: 150,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+    },
+    safeArea: {
+      backgroundColor: colors.background,
+      flex: 1,
+    },
+    subtitle: {
+      color: colors.textMuted,
+      fontSize: 15,
+      lineHeight: 22,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: '800',
+      lineHeight: 34,
+    },
+  });

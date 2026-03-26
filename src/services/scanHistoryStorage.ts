@@ -6,10 +6,17 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
 import type { HealthScoreGrade } from '../constants/productHealthScore';
 import type { ResolvedProduct } from '../types/product';
+import { getAuthSession } from '../store';
 import {
   buildScanHistorySnapshot,
   type ScanHistoryRiskLevel,
 } from '../utils/scanHistory';
+import {
+  deleteRemoteScanHistoryEntries,
+  loadRemoteScanHistory,
+  replaceRemoteScanHistory,
+  saveRemoteScanHistoryEntry,
+} from './cloudUserDataService';
 
 const SCAN_HISTORY_STORAGE_KEY = 'ingredient-scanner/history/v1';
 
@@ -106,26 +113,71 @@ async function writeHistory(entries: ScanHistoryEntry[]) {
   );
 }
 
-export async function loadScanHistory(): Promise<ScanHistoryEntry[]> {
-  const rawValue = await AsyncStorage.getItem(SCAN_HISTORY_STORAGE_KEY);
+function mergeHistoryEntries(
+  localEntries: ScanHistoryEntry[],
+  remoteEntries: ScanHistoryEntry[]
+) {
+  const mergedEntries = new Map<string, ScanHistoryEntry>();
 
-  if (!rawValue) {
-    return [];
-  }
+  [...localEntries, ...remoteEntries].forEach((entry) => {
+    const currentEntry = mergedEntries.get(entry.id);
 
-  try {
-    const parsedValue = JSON.parse(rawValue);
-
-    if (!Array.isArray(parsedValue)) {
-      return [];
+    if (!currentEntry) {
+      mergedEntries.set(entry.id, entry);
+      return;
     }
 
-    return sortHistoryEntries(
-      parsedValue.filter(isValidHistoryEntry).map(normalizeHistoryEntry)
-    );
-  } catch {
-    return [];
+    const currentTime = new Date(currentEntry.scannedAt).getTime();
+    const nextTime = new Date(entry.scannedAt).getTime();
+    mergedEntries.set(entry.id, nextTime > currentTime ? entry : currentEntry);
+  });
+
+  return sortHistoryEntries([...mergedEntries.values()]);
+}
+
+export async function loadScanHistory(): Promise<ScanHistoryEntry[]> {
+  const rawValue = await AsyncStorage.getItem(SCAN_HISTORY_STORAGE_KEY);
+  let localEntries: ScanHistoryEntry[] = [];
+
+  if (!rawValue) {
+    localEntries = [];
+  } else {
+    try {
+      const parsedValue = JSON.parse(rawValue);
+
+      if (Array.isArray(parsedValue)) {
+        localEntries = sortHistoryEntries(
+          parsedValue.filter(isValidHistoryEntry).map(normalizeHistoryEntry)
+        );
+      }
+    } catch {
+      localEntries = [];
+    }
   }
+
+  const sessionUser = getAuthSession().user;
+
+  if (!sessionUser) {
+    return localEntries;
+  }
+
+  const remoteEntries = await loadRemoteScanHistory(sessionUser.id);
+
+  if (remoteEntries.length === 0) {
+    if (localEntries.length > 0) {
+      await replaceRemoteScanHistory(sessionUser.id, localEntries);
+    }
+
+    return localEntries;
+  }
+
+  const mergedEntries = mergeHistoryEntries(localEntries, remoteEntries);
+
+  if (mergedEntries.length !== localEntries.length) {
+    await writeHistory(mergedEntries);
+  }
+
+  return mergedEntries;
 }
 
 export async function saveScanToHistory(
@@ -143,6 +195,11 @@ export async function saveScanToHistory(
   nextEntries.push(nextEntry);
 
   await writeHistory(nextEntries);
+  const sessionUser = getAuthSession().user;
+
+  if (sessionUser) {
+    await saveRemoteScanHistoryEntry(sessionUser.id, nextEntry);
+  }
 
   return nextEntry;
 }
@@ -156,6 +213,21 @@ export async function deleteScanHistoryEntries(ids: string[]) {
   const nextEntries = historyEntries.filter((entry) => !ids.includes(entry.id));
 
   await writeHistory(nextEntries);
+  const sessionUser = getAuthSession().user;
+
+  if (sessionUser) {
+    await deleteRemoteScanHistoryEntries(sessionUser.id, ids);
+  }
 
   return nextEntries;
+}
+
+export async function clearScanHistory() {
+  const sessionUser = getAuthSession().user;
+
+  await AsyncStorage.removeItem(SCAN_HISTORY_STORAGE_KEY);
+
+  if (sessionUser) {
+    await replaceRemoteScanHistory(sessionUser.id, []);
+  }
 }

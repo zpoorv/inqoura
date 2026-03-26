@@ -1,0 +1,47 @@
+import { deleteUser } from 'firebase/auth';
+
+import { getAuthSession } from '../store';
+import { clearAuthenticatedSession, AuthServiceError } from './authHelpers';
+import { deleteRemoteUserData } from './cloudUserDataService';
+import { clearDietProfile, clearDietProfileIntroSeen } from './dietProfileStorage';
+import { getFirebaseAuth } from './firebaseAuth';
+import { clearScanHistory } from './scanHistoryStorage';
+import { clearAppearanceMode } from './themePreferenceStorage';
+import { clearUserProfile } from './userProfileService';
+
+export async function deleteCurrentAccount() {
+  const auth = getFirebaseAuth();
+  const currentUser = auth.currentUser;
+  const sessionUser = getAuthSession().user;
+
+  if (!currentUser || !sessionUser) {
+    throw new AuthServiceError('You need to be logged in before deleting the account.');
+  }
+
+  try {
+    await deleteRemoteUserData(sessionUser.id);
+    await deleteUser(currentUser);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'auth/requires-recent-login'
+    ) {
+      throw new AuthServiceError(
+        'For safety, sign in again before deleting your account.'
+      );
+    }
+
+    throw new AuthServiceError('We could not delete your account right now.');
+  }
+
+  await Promise.all([
+    clearAppearanceMode(),
+    clearAuthenticatedSession(),
+    clearDietProfile(),
+    clearDietProfileIntroSeen(),
+    clearScanHistory(),
+    clearUserProfile(sessionUser.id),
+  ]);
+}

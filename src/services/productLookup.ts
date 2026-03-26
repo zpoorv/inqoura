@@ -16,6 +16,10 @@ import {
   readBarcodeLookupCache,
   writeBarcodeLookupCache,
 } from './barcodeLookupCache';
+import {
+  applyProductOverride,
+  loadProductOverride,
+} from './productOverrideService';
 
 export class ProductLookupError extends Error {
   kind: 'network' | 'service';
@@ -210,22 +214,23 @@ export async function resolveProductByBarcode(
   barcodeType?: string | null
 ): Promise<ResolvedProduct | null> {
   const cacheKey = `${barcodeType || 'unknown'}:${barcode}`;
+  const productOverride = await loadProductOverride(barcode);
 
   if (resolvedProductCache.has(cacheKey)) {
-    return resolvedProductCache.get(cacheKey) ?? null;
+    return applyProductOverride(resolvedProductCache.get(cacheKey) ?? null, productOverride);
   }
 
   const pendingLookup = pendingProductLookups.get(cacheKey);
 
   if (pendingLookup) {
-    return pendingLookup;
+    return applyProductOverride(await pendingLookup, productOverride);
   }
 
   const persistedCacheValue = await readBarcodeLookupCache(cacheKey);
 
   if (persistedCacheValue !== undefined) {
     resolvedProductCache.set(cacheKey, persistedCacheValue);
-    return persistedCacheValue;
+    return applyProductOverride(persistedCacheValue, productOverride);
   }
 
   // Keep repeat scans and quick back-and-forth navigation from hitting both
@@ -240,7 +245,7 @@ export async function resolveProductByBarcode(
     resolvedProductCache.set(cacheKey, resolvedProduct);
     void writeBarcodeLookupCache(cacheKey, resolvedProduct);
 
-    return resolvedProduct;
+    return applyProductOverride(resolvedProduct, productOverride);
   } finally {
     pendingProductLookups.delete(cacheKey);
   }
@@ -276,7 +281,6 @@ async function performProductLookup(
 
   const { name, reason } = resolveDisplayName(barcode, offProduct);
   const nutrition = extractNutritionFromOpenFoodFacts(offProduct?.nutriments);
-
   return {
     additiveCount: offProduct?.additives_n || 0,
     additiveTags: offProduct?.additives_tags?.map(humanizeTag) || [],

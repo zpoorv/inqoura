@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { colors } from '../constants/colors';
+import { useAppTheme } from './AppThemeProvider';
 
 type PrimaryButtonProps = {
   disabled?: boolean;
@@ -13,6 +14,9 @@ export default function PrimaryButton({
   label,
   onPress,
 }: PrimaryButtonProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -30,25 +34,28 @@ export default function PrimaryButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    minHeight: 54,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    width: '100%',
-  },
-  buttonDisabled: {
-    backgroundColor: colors.textMuted,
-  },
-  buttonPressed: {
-    opacity: 0.9,
-  },
-  label: {
-    color: colors.surface,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
+    button: {
+      alignItems: 'center',
+      backgroundColor: colors.primary,
+      borderRadius: 999,
+      minHeight: 54,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      width: '100%',
+    },
+    buttonDisabled: {
+      backgroundColor: colors.textMuted,
+    },
+    buttonPressed: {
+      opacity: 0.9,
+    },
+    label: {
+      color: colors.surface,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+  });

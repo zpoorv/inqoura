@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '../components/AppThemeProvider';
 import AuthTextField from '../components/AuthTextField';
 import PrimaryButton from '../components/PrimaryButton';
 import { APP_NAME } from '../constants/branding';
-import { colors } from '../constants/colors';
 import { AuthServiceError } from '../services/authHelpers';
 import { requestPasswordReset } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
@@ -19,6 +19,8 @@ type ResetPasswordScreenProps = NativeStackScreenProps<
 export default function ResetPasswordScreen({
   navigation,
 }: ResetPasswordScreenProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
@@ -78,7 +80,10 @@ export default function ResetPasswordScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,

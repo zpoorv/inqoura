@@ -1,7 +1,7 @@
 export type ProductSourceStatus = 'used' | 'missed';
 
 export type ProductSourceInfo = {
-  id: 'open_food_facts' | 'ingredient_ocr';
+  id: 'open_food_facts' | 'ingredient_ocr' | 'product_override';
   label: string;
   note: string;
   status: ProductSourceStatus;

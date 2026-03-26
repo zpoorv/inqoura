@@ -4,6 +4,9 @@ import type { ResolvedProduct } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
 
 export type RootStackParamList = {
+  About: undefined;
+  Feedback: undefined;
+  Help: undefined;
   Home: undefined;
   History: undefined;
   Login: LoginScreenParams;
@@ -12,12 +15,15 @@ export type RootStackParamList = {
         profileId?: DietProfileId;
       }
     | undefined;
+  PrivacyPolicy: undefined;
+  ProfileDetails: undefined;
   ResetPassword: undefined;
   Scanner:
     | {
         profileId?: DietProfileId;
       }
     | undefined;
+  Settings: undefined;
   SignUp: undefined;
   Result: {
     barcode: string;

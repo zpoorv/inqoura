@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useAppTheme } from '../components/AppThemeProvider';
 import AuthTextField from '../components/AuthTextField';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import PrimaryButton from '../components/PrimaryButton';
 import { APP_NAME } from '../constants/branding';
-import { colors } from '../constants/colors';
 import { AuthServiceError } from '../services/authHelpers';
 import { signUpWithEmail } from '../services/authService';
 import type { RootStackParamList } from '../navigation/types';
@@ -15,6 +15,8 @@ import type { RootStackParamList } from '../navigation/types';
 type SignUpScreenProps = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
 
 export default function SignUpScreen({ navigation }: SignUpScreenProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -106,7 +108,10 @@ export default function SignUpScreen({ navigation }: SignUpScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors']
+) =>
+  StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
