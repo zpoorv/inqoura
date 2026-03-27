@@ -6,6 +6,8 @@
     "start": "expo start",
     "admin-panel": "node admin_panel/server.mjs",
     "android": "expo run:android",
+    "android:aab": "cd android && NODE_ENV=production ./gradlew bundleRelease",
+    "android:apk:release": "cd android && NODE_ENV=production ./gradlew assembleRelease",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint"

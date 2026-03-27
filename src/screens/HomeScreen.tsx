@@ -12,6 +12,7 @@ import {
   DIET_PROFILE_DEFINITIONS,
   type DietProfileId,
 } from '../constants/dietProfiles';
+import type { PremiumEntitlement } from '../models/premium';
 import type { RootStackParamList } from '../navigation/types';
 import {
   loadDietProfileIntroSeen,
@@ -20,7 +21,16 @@ import {
   syncDietProfileForCurrentUser,
 } from '../services/dietProfileStorage';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
-import { getAuthSession, subscribeAuthSession } from '../store';
+import {
+  hasPremiumFeatureAccess,
+  loadCurrentPremiumEntitlement,
+} from '../services/premiumEntitlementService';
+import {
+  getAuthSession,
+  getPremiumSession,
+  subscribeAuthSession,
+  subscribePremiumSession,
+} from '../store';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -60,6 +70,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [isIngredientOcrEnabled, setIsIngredientOcrEnabled] = useState(true);
   const [isFirstLaunchProfileFlow, setIsFirstLaunchProfileFlow] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
+    getPremiumSession()
+  );
 
   const selectedProfile =
     DIET_PROFILE_DEFINITIONS.find((profile) => profile.id === selectedProfileId) ||
@@ -89,8 +102,14 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       setAccountEmailVerified(session.user?.emailVerified ?? false);
       setAccountProvider(session.user?.provider ?? 'email');
     });
+    const unsubscribePremium = subscribePremiumSession(setPremiumEntitlement);
 
-    return unsubscribe;
+    void loadCurrentPremiumEntitlement();
+
+    return () => {
+      unsubscribe();
+      unsubscribePremium();
+    };
   }, []);
 
   useEffect(() => {
@@ -215,6 +234,51 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </Text>
             </View>
 
+            <View style={styles.premiumCard}>
+              <View style={styles.premiumCardHeader}>
+                <View>
+                  <Text style={styles.premiumCardLabel}>Premium</Text>
+                  <Text style={styles.premiumCardTitle}>
+                    {premiumEntitlement.isPremium
+                      ? 'Premium is active on this account'
+                      : 'Unlock premium tools'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.premiumBadge,
+                    premiumEntitlement.isPremium
+                      ? styles.premiumBadgeActive
+                      : styles.premiumBadgeInactive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.premiumBadgeText,
+                      premiumEntitlement.isPremium
+                        ? styles.premiumBadgeTextActive
+                        : styles.premiumBadgeTextInactive,
+                    ]}
+                  >
+                    {premiumEntitlement.isPremium ? 'Active' : 'Free'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.premiumCardText}>
+                {premiumEntitlement.isPremium
+                  ? 'Premium-only tools are unlocked across this signed-in account.'
+                  : 'Ingredient OCR and result-card sharing are ready for premium billing.'}
+              </Text>
+              <Pressable
+                onPress={() => navigation.navigate('Premium')}
+                style={styles.premiumAction}
+              >
+                <Text style={styles.premiumActionText}>
+                  {premiumEntitlement.isPremium ? 'Manage Premium' : 'View Premium'}
+                </Text>
+              </Pressable>
+            </View>
+
             <View style={styles.accountCard}>
               <Text style={styles.accountLabel}>Account</Text>
               <Text style={styles.accountTitle}>
@@ -238,14 +302,25 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               />
               {isIngredientOcrEnabled ? (
                 <Pressable
-                  onPress={() =>
-                    navigation.navigate('IngredientOcr', {
-                      profileId: selectedProfileId,
-                    })
-                  }
+                  onPress={() => {
+                    if (hasPremiumFeatureAccess('ingredient-ocr', premiumEntitlement)) {
+                      navigation.navigate('IngredientOcr', {
+                        profileId: selectedProfileId,
+                      });
+                      return;
+                    }
+
+                    navigation.navigate('Premium', {
+                      featureId: 'ingredient-ocr',
+                    });
+                  }}
                   style={styles.secondaryAction}
                 >
-                  <Text style={styles.secondaryActionText}>Scan Ingredient Label</Text>
+                  <Text style={styles.secondaryActionText}>
+                    {hasPremiumFeatureAccess('ingredient-ocr', premiumEntitlement)
+                      ? 'Scan Ingredient Label'
+                      : 'Unlock Ingredient OCR'}
+                  </Text>
                 </Pressable>
               ) : null}
               {isHistoryEnabled ? (
@@ -437,6 +512,71 @@ const createStyles = (
   profileSummaryTitle: {
     color: colors.text,
     fontSize: 20,
+    fontWeight: '700',
+  },
+  premiumAction: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryMuted,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  premiumActionText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  premiumBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  premiumBadgeActive: {
+    backgroundColor: colors.successMuted,
+  },
+  premiumBadgeInactive: {
+    backgroundColor: colors.warningMuted,
+  },
+  premiumBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  premiumBadgeTextActive: {
+    color: colors.success,
+  },
+  premiumBadgeTextInactive: {
+    color: colors.warning,
+  },
+  premiumCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 10,
+    padding: 18,
+  },
+  premiumCardHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  premiumCardLabel: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  premiumCardText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  premiumCardTitle: {
+    color: colors.text,
+    fontSize: 18,
     fontWeight: '700',
   },
   safeArea: {

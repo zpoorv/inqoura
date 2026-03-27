@@ -23,7 +23,9 @@ import {
   saveDietProfile,
   syncDietProfileForCurrentUser,
 } from '../services/dietProfileStorage';
+import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
 import { loadUserProfile } from '../services/userProfileService';
+import { getPremiumSession, subscribePremiumSession } from '../store';
 
 type SettingsScreenProps = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -41,15 +43,24 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [roleLabel, setRoleLabel] = useState('User');
+  const [premiumLabel, setPremiumLabel] = useState(
+    getPremiumSession().isPremium ? 'Active' : 'Free'
+  );
 
   useFocusEffect(
     useCallback(() => {
       let isMounted = true;
+      const unsubscribePremium = subscribePremiumSession((entitlement) => {
+        if (isMounted) {
+          setPremiumLabel(entitlement.isPremium ? 'Active' : 'Free');
+        }
+      });
 
       const loadSettings = async () => {
         const [profile, savedDietProfileId] = await Promise.all([
           loadUserProfile(),
           syncDietProfileForCurrentUser(),
+          loadCurrentPremiumEntitlement(),
         ]);
 
         if (!isMounted) {
@@ -73,6 +84,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
 
       return () => {
         isMounted = false;
+        unsubscribePremium();
       };
     }, [])
   );
@@ -175,6 +187,12 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           description="Personalize how product analysis is shown for you."
           title="Preferences"
         >
+          <SettingsRow
+            onPress={() => navigation.navigate('Premium')}
+            subtitle="Manage premium access and future Google Play billing."
+            title="Premium"
+            value={premiumLabel}
+          />
           <View style={styles.themeRow}>
             {(['light', 'dark'] as AppearanceMode[]).map((mode) => {
               const isSelected = appearanceMode === mode;

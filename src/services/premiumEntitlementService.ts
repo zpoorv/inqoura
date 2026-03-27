@@ -1,0 +1,58 @@
+import { PREMIUM_FEATURE_COPY } from '../constants/premium';
+import {
+  buildPremiumEntitlement,
+  createDefaultPremiumEntitlement,
+  type PremiumEntitlement,
+  type PremiumFeatureId,
+} from '../models/premium';
+import {
+  clearPremiumSession,
+  getAuthSession,
+  getPremiumSession,
+  setPremiumSession,
+} from '../store';
+import { loadUserProfile, syncCurrentUserProfileToFirestore } from './userProfileService';
+
+export function getPremiumUpsellCopy(featureId: PremiumFeatureId) {
+  const feature = PREMIUM_FEATURE_COPY[featureId];
+
+  return {
+    body: `${feature.title} is part of Inqoura Premium. Upgrade to unlock it on this account.`,
+    title: `Unlock ${feature.shortLabel}`,
+  };
+}
+
+export function hasPremiumFeatureAccess(
+  featureId: PremiumFeatureId,
+  entitlement: PremiumEntitlement = getPremiumSession()
+) {
+  return entitlement.isPremium && entitlement.features.includes(featureId);
+}
+
+export async function loadCurrentPremiumEntitlement() {
+  const authSession = getAuthSession();
+
+  if (authSession.status !== 'authenticated' || !authSession.user) {
+    clearPremiumSession();
+    return createDefaultPremiumEntitlement();
+  }
+
+  const profile = await loadUserProfile();
+  const entitlement = buildPremiumEntitlement(profile);
+  setPremiumSession(entitlement);
+  return entitlement;
+}
+
+export async function refreshCurrentPremiumEntitlement() {
+  const authSession = getAuthSession();
+
+  if (authSession.status !== 'authenticated' || !authSession.user) {
+    clearPremiumSession();
+    return createDefaultPremiumEntitlement();
+  }
+
+  const profile = await syncCurrentUserProfileToFirestore();
+  const entitlement = buildPremiumEntitlement(profile);
+  setPremiumSession(entitlement);
+  return entitlement;
+}

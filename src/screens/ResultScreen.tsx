@@ -26,12 +26,18 @@ import {
   DEFAULT_DIET_PROFILE_ID,
   type DietProfileId,
 } from '../constants/dietProfiles';
+import type { PremiumEntitlement } from '../models/premium';
 import type { RootStackParamList } from '../navigation/types';
 import type { ProductSourceInfo } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import { syncDietProfileForCurrentUser } from '../services/dietProfileStorage';
+import {
+  hasPremiumFeatureAccess,
+  loadCurrentPremiumEntitlement,
+} from '../services/premiumEntitlementService';
 import { saveScanToHistory } from '../services/scanHistoryStorage';
+import { getPremiumSession, subscribePremiumSession } from '../store';
 import { getGradeTone } from '../utils/gradeTone';
 import {
   type IngredientExplanationLookup,
@@ -230,6 +236,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   );
   const [selectedIngredient, setSelectedIngredient] =
     useState<ExplainedIngredient | null>(null);
+  const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
+    getPremiumSession()
+  );
   const displayProductName = useMemo(
     () => formatProductName(product?.name),
     [product?.name]
@@ -327,6 +336,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   }, [route.params.profileId]);
 
   useEffect(() => {
+    const unsubscribe = subscribePremiumSession(setPremiumEntitlement);
+    void loadCurrentPremiumEntitlement();
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
     const restoreAdminConfig = async () => {
@@ -408,6 +424,11 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
   const handleShareResult = async () => {
     if (!shareableResult || isSharing) {
+      return;
+    }
+
+    if (!hasPremiumFeatureAccess('share-result-card', premiumEntitlement)) {
+      navigation.navigate('Premium', { featureId: 'share-result-card' });
       return;
     }
 
@@ -849,7 +870,11 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       </ScrollView>
       {shareableResult ? (
         <Pressable
-          accessibilityLabel="Share result card"
+          accessibilityLabel={
+            hasPremiumFeatureAccess('share-result-card', premiumEntitlement)
+              ? 'Share result card'
+              : 'Unlock premium sharing'
+          }
           accessibilityRole="button"
           disabled={isSharing}
           onPress={handleShareResult}
@@ -862,7 +887,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         >
           <Ionicons
             color={colors.surface}
-            name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
+            name={
+              isSharing
+                ? 'hourglass-outline'
+                : hasPremiumFeatureAccess('share-result-card', premiumEntitlement)
+                  ? 'share-social-outline'
+                  : 'lock-closed-outline'
+            }
             size={24}
           />
         </Pressable>

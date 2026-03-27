@@ -21,8 +21,8 @@ export default function PrivacyPolicyScreen() {
             Firebase Firestore for profile and history data linked to your account.
           </Text>
           <Text style={styles.body}>
-            Before Play Store release, replace this in-app summary with a hosted privacy policy
-            page that matches your production data flows.
+            Use the hosted privacy policy below for the Play Store listing and in-app disclosure.
+            Keep it updated whenever authentication, cloud sync, analytics, or payments change.
           </Text>
           <Pressable onPress={() => void Linking.openURL(PRIVACY_POLICY_URL)} style={styles.link}>
             <Text style={styles.linkText}>Open hosted privacy policy URL</Text>

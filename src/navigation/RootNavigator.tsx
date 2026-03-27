@@ -12,8 +12,11 @@ import {
   canHandleEmailLink,
   completeEmailLinkSignIn,
 } from '../services/emailLinkAuthService';
+import {
+  refreshCurrentPremiumEntitlement,
+} from '../services/premiumEntitlementService';
 import { AuthServiceError } from '../services/authHelpers';
-import { getAuthSession, subscribeAuthSession } from '../store';
+import { clearPremiumSession, getAuthSession, subscribeAuthSession } from '../store';
 import ResultScreen from '../screens/ResultScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import ScannerScreen from '../screens/ScannerScreen';
@@ -26,6 +29,7 @@ export default function RootNavigator() {
   const [authSession, setAuthSession] = useState(getAuthSession());
   const [isHandlingEmailLink, setIsHandlingEmailLink] = useState(false);
   const { colors } = useAppTheme();
+  const currentUserId = authSession.user?.id ?? null;
 
   const navigationTheme = {
     ...DefaultTheme,
@@ -46,6 +50,15 @@ export default function RootNavigator() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (authSession.status === 'authenticated' && currentUserId) {
+      void refreshCurrentPremiumEntitlement();
+      return;
+    }
+
+    clearPremiumSession();
+  }, [authSession.status, currentUserId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -119,6 +132,11 @@ export default function RootNavigator() {
               name="Settings"
               getComponent={() => require('../screens/SettingsScreen').default}
               options={{ title: 'Settings' }}
+            />
+            <Stack.Screen
+              name="Premium"
+              getComponent={() => require('../screens/PremiumScreen').default}
+              options={{ title: 'Premium' }}
             />
             <Stack.Screen
               name="ProfileDetails"

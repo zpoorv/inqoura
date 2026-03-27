@@ -16,11 +16,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/colors';
 import { DEFAULT_DIET_PROFILE_ID } from '../constants/dietProfiles';
+import { PREMIUM_FEATURE_COPY } from '../constants/premium';
+import type { PremiumEntitlement } from '../models/premium';
 import type { RootStackParamList } from '../navigation/types';
 import {
   IngredientLabelOcrError,
   recognizeIngredientLabelImage,
 } from '../services/ingredientLabelOcr';
+import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
+import { getPremiumSession } from '../store';
 import { buildResolvedProductFromOcr } from '../utils/ocrResolvedProduct';
 
 type IngredientOcrScreenProps = NativeStackScreenProps<
@@ -37,6 +41,9 @@ export default function IngredientOcrScreen({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCropEnabled, setIsCropEnabled] = useState(true);
+  const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
+    getPremiumSession()
+  );
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const selectedProfileId = route.params?.profileId || DEFAULT_DIET_PROFILE_ID;
 
@@ -46,6 +53,24 @@ export default function IngredientOcrScreen({
       // keep a large decoded bitmap alive behind the result screen.
       setPreviewUri(null);
     }
+  }, [isFocused]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!isFocused) {
+      return;
+    }
+
+    void loadCurrentPremiumEntitlement().then((entitlement) => {
+      if (isMounted) {
+        setPremiumEntitlement(entitlement);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [isFocused]);
 
   const handleAssetUri = async (imageUri: string) => {
@@ -136,65 +161,81 @@ export default function IngredientOcrScreen({
           </Text>
         </View>
 
-        <View style={styles.actionCard}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setIsCropEnabled((value) => !value)}
-            style={[
-              styles.cropToggle,
-              isCropEnabled && styles.cropToggleActive,
-            ]}
-          >
-            <View style={styles.cropToggleContent}>
-              <Text
-                style={[
-                  styles.cropToggleLabel,
-                  isCropEnabled && styles.cropToggleLabelActive,
-                ]}
-              >
-                Crop Before OCR
-              </Text>
-              <Text
-                style={[
-                  styles.cropToggleHint,
-                  isCropEnabled && styles.cropToggleHintActive,
-                ]}
-              >
-                {isCropEnabled
-                  ? 'On: select just the ingredient block before scanning.'
-                  : 'Off: scan the full image without cropping first.'}
-              </Text>
-            </View>
-            <View
+        {premiumEntitlement.isPremium ? (
+          <View style={styles.actionCard}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsCropEnabled((value) => !value)}
               style={[
-                styles.cropToggleBadge,
-                isCropEnabled && styles.cropToggleBadgeActive,
+                styles.cropToggle,
+                isCropEnabled && styles.cropToggleActive,
               ]}
             >
-              <Text
+              <View style={styles.cropToggleContent}>
+                <Text
+                  style={[
+                    styles.cropToggleLabel,
+                    isCropEnabled && styles.cropToggleLabelActive,
+                  ]}
+                >
+                  Crop Before OCR
+                </Text>
+                <Text
+                  style={[
+                    styles.cropToggleHint,
+                    isCropEnabled && styles.cropToggleHintActive,
+                  ]}
+                >
+                  {isCropEnabled
+                    ? 'On: select just the ingredient block before scanning.'
+                    : 'Off: scan the full image without cropping first.'}
+                </Text>
+              </View>
+              <View
                 style={[
-                  styles.cropToggleBadgeText,
-                  isCropEnabled && styles.cropToggleBadgeTextActive,
+                  styles.cropToggleBadge,
+                  isCropEnabled && styles.cropToggleBadgeActive,
                 ]}
               >
-                {isCropEnabled ? 'On' : 'Off'}
-              </Text>
-            </View>
-          </Pressable>
-          <PrimaryButton
-            disabled={isProcessing}
-            label={isProcessing ? 'Reading Label...' : 'Take Ingredient Photo'}
-            onPress={() => void handleTakePhoto()}
-          />
-          <PrimaryButton
-            disabled={isProcessing}
-            label={isProcessing ? 'Reading Label...' : 'Choose From Gallery'}
-            onPress={() => void handleChoosePhoto()}
-          />
-          <Text style={styles.helperText}>
-            Tips: crop to the ingredient lines only, avoid blur, and keep the label flat.
-          </Text>
-        </View>
+                <Text
+                  style={[
+                    styles.cropToggleBadgeText,
+                    isCropEnabled && styles.cropToggleBadgeTextActive,
+                  ]}
+                >
+                  {isCropEnabled ? 'On' : 'Off'}
+                </Text>
+              </View>
+            </Pressable>
+            <PrimaryButton
+              disabled={isProcessing}
+              label={isProcessing ? 'Reading Label...' : 'Take Ingredient Photo'}
+              onPress={() => void handleTakePhoto()}
+            />
+            <PrimaryButton
+              disabled={isProcessing}
+              label={isProcessing ? 'Reading Label...' : 'Choose From Gallery'}
+              onPress={() => void handleChoosePhoto()}
+            />
+            <Text style={styles.helperText}>
+              Tips: crop to the ingredient lines only, avoid blur, and keep the label flat.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.lockedCard}>
+            <Text style={styles.lockedEyebrow}>Premium Feature</Text>
+            <Text style={styles.lockedTitle}>
+              {PREMIUM_FEATURE_COPY['ingredient-ocr'].title}
+            </Text>
+            <Text style={styles.lockedText}>
+              {PREMIUM_FEATURE_COPY['ingredient-ocr'].description}
+            </Text>
+            <PrimaryButton
+              label="View Premium"
+              onPress={() => navigation.navigate('Premium', { featureId: 'ingredient-ocr' })}
+            />
+          </View>
+        )}
 
         {previewUri ? (
           <View style={styles.previewCard}>
@@ -324,6 +365,31 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 14,
     lineHeight: 21,
+  },
+  lockedCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 24,
+    borderWidth: 1,
+    gap: 12,
+    padding: 20,
+  },
+  lockedEyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  lockedText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  lockedTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
   },
   heroCard: {
     backgroundColor: colors.primaryMuted,

@@ -1,5 +1,6 @@
 import type { DietProfileId } from '../constants/dietProfiles';
 import type { LoginScreenParams } from '../models/auth';
+import type { PremiumFeatureId } from '../models/premium';
 import type { ResolvedProduct } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
 
@@ -16,6 +17,11 @@ export type RootStackParamList = {
       }
     | undefined;
   PrivacyPolicy: undefined;
+  Premium:
+    | {
+        featureId?: PremiumFeatureId;
+      }
+    | undefined;
   ProfileDetails: undefined;
   ResetPassword: undefined;
   Scanner:

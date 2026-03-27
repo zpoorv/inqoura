@@ -20,6 +20,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
@@ -43,8 +47,7 @@
       ],
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ],
       "package": "com.zpoorv.inqoura",
       "versionCode": 1

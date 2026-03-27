@@ -5,22 +5,22 @@
 - Android package name: `com.zpoorv.inqoura`
 - Firebase Authentication wired into the app
 - Google services file connected to the Android app
+- Firestore connected for profile, history, and admin override data
 - Expo dev-client Android project generated
 - `eas.json` added with preview and production Android build profiles
 - Android `versionCode` set to `1`
+- Local release signing now supports `android/keystore.properties`
+- Local Android App Bundle build script: `npm run android:aab`
 
-## What this app does not need yet
+## Current backend usage
 
-- A separate database is not required for the current feature set.
-- Scan history is local-only through AsyncStorage.
-- Product lookup uses Open Food Facts.
-- Authentication uses Firebase Authentication.
-
-Add a cloud database only if you want features like:
-
-- syncing scan history across devices
-- storing user profiles in the cloud
-- saving favorites, collections, or shared results
+- Firebase Authentication is used for email, email-link, and Google sign-in.
+- Firebase Firestore is already used for:
+  - synced user profiles
+  - synced scan history
+  - admin product overrides
+  - admin app config
+- Product lookup still uses Open Food Facts as the default public catalog.
 
 ## Recommended next services
 
@@ -35,14 +35,18 @@ Add a cloud database only if you want features like:
 
 ## Setup you still need to do in Firebase Console
 
-1. Create Cloud Firestore in production mode and pick a region.
-2. Deploy the local Firestore files in this repo:
+1. Deploy the local Firestore files in this repo:
    - `firestore.rules`
-3. Keep Firebase Authentication enabled for:
+2. Keep Firebase Authentication enabled for:
    - Email/password
    - Email link
    - Google
-4. Add your authorized domains for email links and production web pages.
+3. Add your authorized domains for email links and production web pages.
+4. Enable Firebase App Check before broad production rollout.
+5. Prepare the hosted URLs you will put into Play Console:
+   - privacy policy
+   - account deletion page
+   - support/contact page if you want one
 
 ## Cloud data model to start with
 
@@ -118,14 +122,15 @@ Spark can cover early development, but premium billing verification and heavier 
 ## Release checklist
 
 1. Create a Play Console app for `Inqoura`
-2. Prepare a privacy policy URL
-3. Complete the Play Console app content forms
-4. Prepare store listing assets
-5. Add an account deletion flow and a public web page for deletion requests
-6. Build an Android App Bundle
-7. Upload the first internal test release
-8. Add a tester account for review because the app requires login
-9. Set up Google Play Billing merchant payouts if you will sell premium
+2. Host the privacy policy URL used in the app
+3. Host a public account deletion page for Play review
+4. Complete the Play Console app content forms
+5. Prepare store listing assets
+6. Generate or confirm the release upload key
+7. Build an Android App Bundle
+8. Upload the first internal test release
+9. Add a tester account for review because the app requires login
+10. Set up Google Play Billing merchant payouts if you will sell premium
 
 ## Assets you should prepare
 
@@ -139,11 +144,20 @@ Spark can cover early development, but premium billing verification and heavier 
 - Account deletion web page URL
 
 ## If you want cloud sync later
+Cloud sync is already wired for core profile and history data.
 
-Create Firestore collections like:
+Future additions can extend:
 
-- `users/{userId}`
-- `users/{userId}/scanHistory/{scanId}`
-- `users/{userId}/preferences/profile`
+- `users/{userId}/favorites/{itemId}`
+- `users/{userId}/collections/{collectionId}`
+- `subscriptions/{uid}`
+- `purchaseReceipts/{receiptId}`
 
-That can be added later without changing the current Play Store path.
+## Local release build
+
+1. Generate a release keystore or keep the existing upload key safe.
+2. Fill `android/keystore.properties` from `android/keystore.properties.example`.
+3. Build locally:
+   - `npm run android:aab`
+4. The bundle is created at:
+   - `android/app/build/outputs/bundle/release/app-release.aab`
