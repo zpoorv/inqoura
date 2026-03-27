@@ -3,10 +3,13 @@ import { deleteUser } from 'firebase/auth';
 import { getAuthSession } from '../store';
 import { clearAuthenticatedSession, AuthServiceError } from './authHelpers';
 import { deleteRemoteUserData } from './cloudUserDataService';
-import { clearDietProfile, clearDietProfileIntroSeen } from './dietProfileStorage';
+import {
+  clearDietProfileForUser,
+  clearDietProfileIntroSeen,
+} from './dietProfileStorage';
 import { getFirebaseAuth } from './firebaseAuth';
 import { clearScanHistoryForUser } from './scanHistoryStorage';
-import { clearAppearanceMode } from './themePreferenceStorage';
+import { clearAppearanceModeForUser } from './themePreferenceStorage';
 import { clearUserProfile } from './userProfileService';
 
 export async function deleteCurrentAccount() {
@@ -43,9 +46,9 @@ export async function deleteCurrentAccount() {
   }
 
   await Promise.all([
-    clearAppearanceMode(),
+    clearAppearanceModeForUser(sessionUser.id),
     clearAuthenticatedSession(),
-    clearDietProfile(),
+    clearDietProfileForUser(sessionUser.id),
     clearDietProfileIntroSeen(),
     clearScanHistoryForUser(sessionUser.id),
     clearUserProfile(sessionUser.id),

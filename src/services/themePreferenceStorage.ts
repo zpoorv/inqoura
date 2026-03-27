@@ -1,19 +1,91 @@
 import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
 
+import { DEFAULT_DIET_PROFILE_ID } from '../constants/dietProfiles';
+import { getAuthSession } from '../store';
 import type { AppearanceMode } from '../models/preferences';
+import { isAppearanceMode } from '../models/preferences';
+import { loadRemoteUserProfile } from './cloudUserDataService';
+import { saveCurrentUserPreferences } from './userProfileService';
 
-const APPEARANCE_MODE_STORAGE_KEY = 'inqoura/appearance-mode/v1';
+const LEGACY_APPEARANCE_MODE_STORAGE_KEY = 'inqoura/appearance-mode/v1';
+const APPEARANCE_MODE_STORAGE_KEY_PREFIX = 'inqoura/appearance-mode/v2';
+
+function getAppearanceModeStorageKey(scopeId: string) {
+  return `${APPEARANCE_MODE_STORAGE_KEY_PREFIX}/${scopeId}`;
+}
+
+function getAppearanceModeScopeId(uid?: string | null) {
+  return uid ? `user:${uid}` : 'guest';
+}
+
+async function loadScopedAppearanceMode(scopeId: string) {
+  const scopedValue = await AsyncStorage.getItem(getAppearanceModeStorageKey(scopeId));
+
+  if (isAppearanceMode(scopedValue)) {
+    return scopedValue;
+  }
+
+  if (scopeId !== 'guest') {
+    return null;
+  }
+
+  const legacyValue = await AsyncStorage.getItem(LEGACY_APPEARANCE_MODE_STORAGE_KEY);
+  return isAppearanceMode(legacyValue) ? legacyValue : null;
+}
+
+async function writeScopedAppearanceMode(scopeId: string, mode: AppearanceMode) {
+  await AsyncStorage.setItem(getAppearanceModeStorageKey(scopeId), mode);
+}
 
 export async function loadAppearanceMode(): Promise<AppearanceMode> {
-  const rawValue = await AsyncStorage.getItem(APPEARANCE_MODE_STORAGE_KEY);
-  return rawValue === 'dark' ? 'dark' : 'light';
+  const sessionUser = getAuthSession().user;
+  const scopeId = getAppearanceModeScopeId(sessionUser?.id);
+  const localMode = await loadScopedAppearanceMode(scopeId);
+
+  if (!sessionUser) {
+    return localMode ?? 'light';
+  }
+
+  const remoteProfile = await loadRemoteUserProfile(sessionUser.id);
+
+  if (isAppearanceMode(remoteProfile?.appearanceMode)) {
+    await writeScopedAppearanceMode(scopeId, remoteProfile.appearanceMode);
+    return remoteProfile.appearanceMode;
+  }
+
+  const resolvedMode = localMode ?? 'light';
+  await writeScopedAppearanceMode(scopeId, resolvedMode);
+  await saveCurrentUserPreferences({
+    appearanceMode: resolvedMode,
+    dietProfileId: remoteProfile?.dietProfileId ?? DEFAULT_DIET_PROFILE_ID,
+  });
+
+  return resolvedMode;
 }
 
 export async function saveAppearanceMode(mode: AppearanceMode) {
-  await AsyncStorage.setItem(APPEARANCE_MODE_STORAGE_KEY, mode);
+  const sessionUser = getAuthSession().user;
+  const scopeId = getAppearanceModeScopeId(sessionUser?.id);
+
+  await writeScopedAppearanceMode(scopeId, mode);
+
+  if (sessionUser) {
+    const remoteProfile = await loadRemoteUserProfile(sessionUser.id);
+    await saveCurrentUserPreferences({
+      appearanceMode: mode,
+      dietProfileId: remoteProfile?.dietProfileId ?? DEFAULT_DIET_PROFILE_ID,
+    });
+  }
+
   return mode;
 }
 
 export async function clearAppearanceMode() {
-  await AsyncStorage.removeItem(APPEARANCE_MODE_STORAGE_KEY);
+  await clearAppearanceModeForUser(getAuthSession().user?.id);
+}
+
+export async function clearAppearanceModeForUser(uid?: string | null) {
+  await AsyncStorage.removeItem(
+    getAppearanceModeStorageKey(getAppearanceModeScopeId(uid))
+  );
 }

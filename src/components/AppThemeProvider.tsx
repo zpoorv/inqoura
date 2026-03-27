@@ -9,6 +9,7 @@ import {
 
 import { getThemeColors } from '../constants/theme';
 import type { AppearanceMode } from '../models/preferences';
+import { subscribeAuthSession } from '../store';
 import {
   loadAppearanceMode,
   saveAppearanceMode,
@@ -27,15 +28,26 @@ export default function AppThemeProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let isMounted = true;
+    let requestId = 0;
 
-    void loadAppearanceMode().then((mode) => {
-      if (isMounted) {
+    const restoreAppearanceMode = async () => {
+      requestId += 1;
+      const currentRequestId = requestId;
+      const mode = await loadAppearanceMode();
+
+      if (isMounted && currentRequestId === requestId) {
         setAppearanceModeState(mode);
       }
+    };
+
+    void restoreAppearanceMode();
+    const unsubscribe = subscribeAuthSession(() => {
+      void restoreAppearanceMode();
     });
 
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
