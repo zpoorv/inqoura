@@ -15,7 +15,6 @@ import { useAppTheme } from '../components/AppThemeProvider';
 import HistoryInsightsCard from '../components/HistoryInsightsCard';
 import HistoryListItemSkeleton from '../components/HistoryListItemSkeleton';
 import HistoryListItem from '../components/HistoryListItem';
-import type { PremiumEntitlement } from '../models/premium';
 import type { RootStackParamList } from '../navigation/types';
 import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
 import {
@@ -26,7 +25,6 @@ import {
 import { loadUserProfile } from '../services/userProfileService';
 import { getDietProfileDefinition } from '../utils/dietProfiles';
 import { buildHistoryInsights, type HistoryInsight } from '../utils/historyPersonalization';
-import { getPremiumSession } from '../store';
 
 type HistoryScreenProps = NativeStackScreenProps<RootStackParamList, 'History'>;
 type SortOrder = 'newest' | 'oldest';
@@ -56,11 +54,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
   const [historyEntries, setHistoryEntries] = useState<ScanHistoryEntry[]>([]);
   const [historyInsights, setHistoryInsights] = useState<HistoryInsight[]>([]);
-  const [historyInsightsEnabled, setHistoryInsightsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
-    getPremiumSession()
-  );
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
@@ -86,12 +80,11 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 
         if (isMounted) {
           setHistoryEntries(nextEntries);
-          setPremiumEntitlement(entitlement);
-          setHistoryInsightsEnabled(profile?.historyInsightsEnabled ?? true);
           setHistoryInsights(
-            entitlement.isPremium && (profile?.historyInsightsEnabled ?? true)
-              ? buildHistoryInsights(nextEntries)
-              : []
+            buildHistoryInsights(nextEntries, {
+              includePremiumPatterns:
+                entitlement.isPremium && (profile?.historyInsightsEnabled ?? true),
+            })
           );
         }
       } finally {
@@ -199,8 +192,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           </View>
           <Text style={styles.title}>Review products you scanned earlier</Text>
           <Text style={styles.subtitle}>
-            Search by product name, barcode, or risk note, then reopen the full
-            result screen with one tap.
+            Search, sort, and quickly spot your best picks, repeat buys, and items to rethink.
           </Text>
         </View>
 
@@ -272,9 +264,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           ) : null}
         </View>
 
-        {premiumEntitlement.isPremium &&
-        historyInsightsEnabled &&
-        historyInsights.length > 0 ? (
+        {historyInsights.length > 0 ? (
           <View style={styles.insightsWrap}>
             <HistoryInsightsCard colors={colors} insights={historyInsights} />
           </View>

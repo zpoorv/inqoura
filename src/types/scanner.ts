@@ -1,4 +1,5 @@
 export type ScanResultSource = 'barcode' | 'ingredient-ocr';
+export type ScanQuality = 'good' | 'retry' | 'poor';
 
 export type ScannerState = 'ready' | 'loading' | 'empty' | 'error';
 

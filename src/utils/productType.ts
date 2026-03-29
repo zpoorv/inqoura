@@ -1,5 +1,7 @@
 import type { ResolvedProduct } from '../types/product';
 
+export type ProductFoodStatus = 'food' | 'likely-food' | 'unclear' | 'non-food';
+
 const FOOD_KEYWORDS = [
   'food',
   'drink',
@@ -32,9 +34,12 @@ const FOOD_KEYWORDS = [
   'flour',
   'oil',
   'yogurt',
+  'curd',
   'cheese',
   'fruit',
   'vegetable',
+  'masala',
+  'seasoning',
 ];
 
 const NON_FOOD_KEYWORDS = [
@@ -60,41 +65,88 @@ const NON_FOOD_KEYWORDS = [
   'hardware',
   'furniture',
   'cleaning',
+  'air freshener',
+  'polish',
 ];
 
-function hasKeywordMatch(value: string, keywords: string[]) {
-  return keywords.some((keyword) => value.includes(keyword));
+const FOOD_PACKAGING_HINTS = [
+  'vegetarian',
+  'vegan',
+  'contains',
+  'ingredients',
+  'nutrition',
+  'allergen',
+  'serving',
+  'ready to eat',
+  'best before',
+];
+
+function countKeywordMatches(value: string, keywords: string[]) {
+  return keywords.filter((keyword) => value.includes(keyword)).length;
 }
 
-function hasNutritionSignal(product: ResolvedProduct) {
-  return Object.values(product.nutrition).some(
-    (value) => value !== null && value !== undefined
-  );
-}
-
-export function isLikelyFoodProduct(product: ResolvedProduct) {
-  const searchableText = [
+function buildSearchableText(product: ResolvedProduct) {
+  return [
     product.name,
     product.brand,
     product.ingredientsText,
+    product.nameReason,
     ...product.categories,
     ...product.labels,
+    ...product.allergens,
   ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
+}
 
-  if (hasKeywordMatch(searchableText, NON_FOOD_KEYWORDS)) {
-    return false;
+function getNutritionSignalCount(product: ResolvedProduct) {
+  return Object.values(product.nutrition).filter(
+    (value) => value !== null && value !== undefined
+  ).length;
+}
+
+export function classifyProductFoodStatus(
+  product: ResolvedProduct
+): ProductFoodStatus {
+  const searchableText = buildSearchableText(product);
+  const nonFoodMatches = countKeywordMatches(searchableText, NON_FOOD_KEYWORDS);
+  const foodMatches = countKeywordMatches(searchableText, FOOD_KEYWORDS);
+  const packagingHints = countKeywordMatches(searchableText, FOOD_PACKAGING_HINTS);
+  const nutritionSignals = getNutritionSignalCount(product);
+  const hasIngredients = Boolean(product.ingredientsText?.trim());
+  const hasAdditives = product.additiveCount > 0 || product.additiveTags.length > 0;
+  const hasFoodStructure =
+    nutritionSignals >= 2 || hasIngredients || hasAdditives || packagingHints > 0;
+
+  if (nonFoodMatches >= 2 && !hasFoodStructure) {
+    return 'non-food';
   }
 
-  if (hasNutritionSignal(product)) {
-    return true;
+  if (nonFoodMatches > 0 && nutritionSignals === 0 && !hasIngredients) {
+    return foodMatches > 0 ? 'unclear' : 'non-food';
   }
 
-  if (product.additiveCount > 0 || (product.ingredientsText || '').trim()) {
-    return true;
+  if (nutritionSignals >= 3 && (hasIngredients || foodMatches > 0)) {
+    return 'food';
   }
 
-  return hasKeywordMatch(searchableText, FOOD_KEYWORDS);
+  if (hasIngredients && (foodMatches > 0 || packagingHints > 0 || hasAdditives)) {
+    return 'food';
+  }
+
+  if (nutritionSignals >= 2 || hasIngredients || foodMatches > 0 || hasAdditives) {
+    return 'likely-food';
+  }
+
+  if (foodMatches > 0 || packagingHints > 0) {
+    return 'unclear';
+  }
+
+  return nonFoodMatches > 0 ? 'non-food' : 'unclear';
+}
+
+export function isLikelyFoodProduct(product: ResolvedProduct) {
+  const foodStatus = classifyProductFoodStatus(product);
+  return foodStatus === 'food' || foodStatus === 'likely-food';
 }

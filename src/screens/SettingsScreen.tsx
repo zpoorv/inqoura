@@ -264,11 +264,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.hero}>
-          <Text style={styles.eyebrow}>Settings</Text>
-          <Text style={styles.title}>Settings</Text>
-        </View>
-
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>{profileName || profileEmail || APP_NAME}</Text>
           <View style={styles.roleBadge}>
@@ -414,17 +409,6 @@ const createStyles = (
       gap: 24,
       padding: 24,
     },
-    eyebrow: {
-      color: colors.primary,
-      fontFamily: typography.accentFontFamily,
-      fontSize: 13,
-      fontWeight: '800',
-      letterSpacing: 0.4,
-      textTransform: 'uppercase',
-    },
-    hero: {
-      gap: 10,
-    },
     roleBadge: {
       alignSelf: 'flex-start',
       backgroundColor: colors.primaryMuted,
@@ -495,12 +479,5 @@ const createStyles = (
       flexDirection: 'row',
       gap: 12,
       padding: 18,
-    },
-    title: {
-      color: colors.text,
-      fontFamily: typography.displayFontFamily,
-      fontSize: 30,
-      fontWeight: '800',
-      lineHeight: 36,
     },
   });

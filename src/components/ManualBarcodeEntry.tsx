@@ -24,7 +24,7 @@ export default function ManualBarcodeEntry({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.label}>Type Barcode Number</Text>
+      <Text style={styles.label}>Type it instead</Text>
       <TextInput
         autoCapitalize="none"
         autoCorrect={false}
@@ -41,7 +41,7 @@ export default function ManualBarcodeEntry({
       {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       <PrimaryButton
         disabled={disabled}
-        label={disabled ? 'Looking Up Barcode...' : 'Lookup Barcode'}
+        label={disabled ? 'Checking Barcode...' : 'Check Barcode'}
         onPress={onSubmit}
       />
     </View>

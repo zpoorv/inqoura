@@ -2,8 +2,11 @@ import type { ResolvedProduct } from '../types/product';
 
 type BuildOcrResolvedProductInput = {
   ingredientsText: string;
+  matchedIngredientCount: number;
+  parseCompleteness: number;
   qualityNotes: string[];
   rawText: string;
+  rejectedNoiseCount: number;
   sourceImageUri: string;
 };
 
@@ -29,8 +32,11 @@ function extractAllergenHints(rawText: string) {
 
 export function buildResolvedProductFromOcr({
   ingredientsText,
+  matchedIngredientCount,
+  parseCompleteness,
   qualityNotes,
   rawText,
+  rejectedNoiseCount,
   sourceImageUri,
 }: BuildOcrResolvedProductInput): ResolvedProduct {
   const additiveTags = extractAdditiveTags(ingredientsText);
@@ -54,6 +60,11 @@ export function buildResolvedProductFromOcr({
     nutrition: {},
     nutritionImageUrl: null,
     nutriScore: null,
+    ocrDiagnostics: {
+      matchedIngredientCount,
+      parseCompleteness,
+      rejectedNoiseCount,
+    },
     quantity: null,
     sources: [
       {

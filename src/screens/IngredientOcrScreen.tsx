@@ -43,6 +43,12 @@ type IngredientOcrScreenProps = NativeStackScreenProps<
   'IngredientOcr'
 >;
 
+type PendingOcrAsset = {
+  height?: number | null;
+  uri: string;
+  width?: number | null;
+};
+
 export default function IngredientOcrScreen({
   navigation,
   route,
@@ -63,6 +69,7 @@ export default function IngredientOcrScreen({
   const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
     getPremiumSession()
   );
+  const [pendingAsset, setPendingAsset] = useState<PendingOcrAsset | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const selectedProfileId = route.params?.profileId || DEFAULT_DIET_PROFILE_ID;
 
@@ -71,6 +78,7 @@ export default function IngredientOcrScreen({
       // Clear the preview when this screen goes to the background so we do not
       // keep a large decoded bitmap alive behind the result screen.
       setIsGuidedCameraVisible(false);
+      setPendingAsset(null);
       setPreviewUri(null);
     }
   }, [isFocused]);
@@ -100,11 +108,7 @@ export default function IngredientOcrScreen({
     uri,
     width,
     height,
-  }: {
-    height?: number | null;
-    uri: string;
-    width?: number | null;
-  }) => {
+  }: PendingOcrAsset) => {
     const entitlement = await loadCurrentPremiumEntitlement();
     const quotaResult = await consumeFeatureQuota('ingredient-ocr', entitlement);
 
@@ -130,6 +134,7 @@ export default function IngredientOcrScreen({
         width: width ?? null,
       });
       const product = buildResolvedProductFromOcr(ocrResult);
+      setPendingAsset(null);
       setPreviewUri(null);
       setIsGuidedCameraVisible(false);
 
@@ -149,6 +154,14 @@ export default function IngredientOcrScreen({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const stageAssetForConfirmation = (asset: PendingOcrAsset) => {
+    setPendingAsset(asset);
+    setPreviewUri(asset.uri);
+    setErrorMessage(null);
+    setCameraError(null);
+    setIsGuidedCameraVisible(false);
   };
 
   const handleOpenGuidedCamera = async () => {
@@ -172,6 +185,8 @@ export default function IngredientOcrScreen({
       return;
     }
 
+    setPendingAsset(null);
+    setPreviewUri(null);
     setErrorMessage(null);
     setCameraError(null);
     setIsGuidedCameraVisible(true);
@@ -185,6 +200,8 @@ export default function IngredientOcrScreen({
       return;
     }
 
+    setPendingAsset(null);
+    setPreviewUri(null);
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: isCropEnabled,
       aspect: [4, 3],
@@ -194,7 +211,7 @@ export default function IngredientOcrScreen({
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      await handleAsset({
+      stageAssetForConfirmation({
         height: result.assets[0].height ?? null,
         uri: result.assets[0].uri,
         width: result.assets[0].width ?? null,
@@ -203,8 +220,7 @@ export default function IngredientOcrScreen({
   };
 
   const handleGuidedCapture = async (photo: CameraCapturedPicture) => {
-    setIsGuidedCameraVisible(false);
-    await handleAsset({
+    stageAssetForConfirmation({
       height: photo.height,
       uri: photo.uri,
       width: photo.width,
@@ -220,13 +236,13 @@ export default function IngredientOcrScreen({
   };
 
   const helperCopy = isCropEnabled
-    ? 'Crop is on.'
-    : 'Crop is off.';
+    ? 'Crop before reading.'
+    : 'Use the full image.';
   const quotaSummaryText = featureQuotaSnapshot?.isUnlimited
-    ? 'Premium keeps ingredient OCR unlimited and ad-free.'
+    ? 'Premium keeps ingredient photo scans unlimited and ad-free.'
     : featureQuotaSnapshot
-      ? `${featureQuotaSnapshot.remaining} of 5 basic OCR scans left today.`
-      : 'Checking your OCR allowance...';
+      ? `${featureQuotaSnapshot.remaining} of 5 daily ingredient scans left.`
+      : 'Checking your daily ingredient scans...';
 
   const liveCaptureTips = [
     'Center the ingredient lines inside the capture box.',
@@ -273,7 +289,7 @@ export default function IngredientOcrScreen({
         <View style={styles.captureFlowCard}>
           <Text style={styles.captureFlowLabel}>Live guided capture</Text>
           <Text style={styles.captureFlowTitle}>Frame the ingredient block tightly</Text>
-          <Text style={styles.captureFlowText}>Capture the ingredient lines clearly.</Text>
+          <Text style={styles.captureFlowText}>Capture the ingredient lines clearly, then confirm the photo before OCR starts.</Text>
           <OcrCapturePanel
             isBusy={isProcessing}
             onCancel={handleCloseGuidedCamera}
@@ -290,9 +306,9 @@ export default function IngredientOcrScreen({
     }
 
     return (
-        <View style={styles.actionCard}>
-          <View style={styles.usageCard}>
-          <Text style={styles.usageLabel}>OCR</Text>
+      <View style={styles.actionCard}>
+        <View style={styles.usageCard}>
+          <Text style={styles.usageLabel}>Daily scans</Text>
           <Text style={styles.usageTitle}>
             {featureQuotaSnapshot?.isUnlimited
               ? 'Unlimited scans'
@@ -408,16 +424,36 @@ export default function IngredientOcrScreen({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroCard}>
-          <Text style={styles.eyebrow}>Ingredient Label OCR</Text>
-          <Text style={styles.title}>Photograph an ingredient list</Text>
+          <Text style={styles.eyebrow}>Ingredient Photo</Text>
+          <Text style={styles.title}>Photograph the ingredient list</Text>
         </View>
 
         {renderActionCard()}
 
         {previewUri ? (
           <View style={styles.previewCard}>
-            <Text style={styles.previewLabel}>Selected image</Text>
+            <Text style={styles.previewLabel}>
+              {pendingAsset ? 'Confirm photo' : 'Selected image'}
+            </Text>
             <Image source={{ uri: previewUri }} style={styles.previewImage} />
+            {pendingAsset ? (
+              <View style={styles.previewActions}>
+                <PrimaryButton
+                  disabled={isProcessing}
+                  label={isProcessing ? 'Reading Label...' : 'Use This Photo'}
+                  onPress={() => void handleAsset(pendingAsset)}
+                />
+                <PrimaryButton
+                  disabled={isProcessing}
+                  label="Retake"
+                  onPress={() => {
+                    setPendingAsset(null);
+                    setPreviewUri(null);
+                    setErrorMessage(null);
+                  }}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -600,6 +636,9 @@ const createStyles = (
     borderWidth: 1,
     gap: 12,
     padding: 20,
+  },
+  previewActions: {
+    gap: 10,
   },
   previewImage: {
     backgroundColor: colors.background,

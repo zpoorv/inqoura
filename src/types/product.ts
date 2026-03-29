@@ -3,6 +3,12 @@ import type { HealthScoreGrade } from '../constants/productHealthScore';
 
 export type ProductSourceStatus = 'used' | 'missed';
 
+export type OcrParseDiagnostics = {
+  matchedIngredientCount: number;
+  parseCompleteness: number;
+  rejectedNoiseCount: number;
+};
+
 export type ProductSourceInfo = {
   id: 'open_food_facts' | 'ingredient_ocr' | 'product_override';
   label: string;
@@ -54,6 +60,7 @@ export type ResolvedProduct = {
   nutrition: ResolvedNutrition;
   nutritionImageUrl: string | null;
   nutriScore: string | null;
+  ocrDiagnostics?: OcrParseDiagnostics | null;
   quantity: string | null;
   sources: ProductSourceInfo[];
 };

@@ -13,7 +13,7 @@ import {
   scoreProductHealth,
   type ProductHealthScoreAdjustment,
 } from './productHealthScore';
-import { isLikelyFoodProduct } from './productType';
+import { classifyProductFoodStatus } from './productType';
 
 export type ProductMetric = {
   label: string;
@@ -218,8 +218,9 @@ export function analyzeProduct(
   profileId: DietProfileId = DEFAULT_DIET_PROFILE_ID
 ): ProductInsights {
   const profile = getDietProfileDefinition(profileId);
+  const foodStatus = classifyProductFoodStatus(product);
 
-  if (!isLikelyFoodProduct(product)) {
+  if (foodStatus === 'non-food') {
     return {
       cautions: ['This item does not look like an edible product'],
       gradeLabel: null,
@@ -232,6 +233,22 @@ export function analyzeProduct(
       smartScore: null,
       summary: 'Health scoring is only shown for edible food and drink products.',
       verdict: `${formatProductName(product.name)} is not being scored as a food item.`,
+    };
+  }
+
+  if (foodStatus === 'unclear') {
+    return {
+      cautions: ['We need clearer product details before scoring this item'],
+      gradeLabel: null,
+      highlights: [],
+      metrics: [],
+      profileId,
+      profileLabel: profile.label,
+      profileSummary: null,
+      processingLabel: null,
+      smartScore: null,
+      summary: 'This looks like a food item, but the details are still too incomplete to score with confidence.',
+      verdict: `${formatProductName(product.name)} needs a closer look before we score it.`,
     };
   }
 

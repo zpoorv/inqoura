@@ -32,8 +32,8 @@ export default function HistoryInsightsCard({
 
   return (
     <View style={styles.card}>
-      <Text style={styles.label}>Insights</Text>
-      <Text style={styles.title}>Recent patterns</Text>
+      <Text style={styles.label}>Shopping Notes</Text>
+      <Text style={styles.title}>What your saves mean</Text>
       {insights.map((insight) => (
         <View key={insight.id} style={styles.insightRow}>
           <View

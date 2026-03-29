@@ -49,7 +49,7 @@ export default function OcrCapturePanel({
       <View style={styles.cameraWrap}>
         <CameraView
           ref={cameraRef}
-          autofocus="off"
+          autofocus="on"
           facing="back"
           onMountError={(event) => onMountError?.(event.message)}
           ratio="4:3"

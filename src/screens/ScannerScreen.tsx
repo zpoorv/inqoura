@@ -26,43 +26,65 @@ import {
 } from '../services/productLookup';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import type { RootStackParamList } from '../navigation/types';
-import type { LastScanResult, ScannerState } from '../types/scanner';
+import type {
+  LastScanResult,
+  ScanQuality,
+  ScannerState,
+} from '../types/scanner';
 import { normalizeBarcode } from '../utils/barcode';
 
 type ScannerScreenProps = NativeStackScreenProps<RootStackParamList, 'Scanner'>;
 
 const DUPLICATE_SCAN_WINDOW_MS = 2000;
+const RETRY_SCAN_PROMPT_MS = 2500;
+const POOR_SCAN_PROMPT_MS = 6000;
 
-function getOverlayLabel(scannerState: ScannerState) {
-  switch (scannerState) {
-    case 'loading':
-      return 'Looking Up Product';
-    case 'empty':
-      return 'No Match Found';
-    case 'error':
-      return 'Scanner Paused';
-    default:
-      return 'Live Scanner';
+function getOverlayLabel(scannerState: ScannerState, scanQuality: ScanQuality) {
+  if (scannerState === 'loading') {
+    return 'Checking Barcode';
   }
+
+  if (scannerState === 'empty') {
+    return 'No Match Yet';
+  }
+
+  if (scannerState === 'error') {
+    return 'Scanner Paused';
+  }
+
+  return scanQuality === 'poor' ? 'Need A Clearer View' : 'Live Scanner';
 }
 
-function getHelperText(scannerState: ScannerState) {
-  switch (scannerState) {
-    case 'loading':
-      return 'Hold steady.';
-    case 'empty':
-      return 'No match yet.';
-    case 'error':
-      return 'Reset and try again.';
-    default:
-      return 'Center the barcode.';
+function getHelperText(scannerState: ScannerState, scanQuality: ScanQuality) {
+  if (scannerState === 'loading') {
+    return 'Hold steady';
   }
+
+  if (scannerState === 'empty') {
+    return 'Type it instead';
+  }
+
+  if (scannerState === 'error') {
+    return 'Scan again';
+  }
+
+  if (scanQuality === 'retry') {
+    return 'Move closer';
+  }
+
+  if (scanQuality === 'poor') {
+    return 'Type it instead';
+  }
+
+  return 'Hold steady';
 }
 
 function getStatusContent(
   scannerState: ScannerState,
   lastScan: LastScanResult | null,
-  errorMessage: string | null
+  errorMessage: string | null,
+  scanQuality: ScanQuality,
+  showManualFallbackHint: boolean
 ) {
   if (scannerState === 'loading') {
     return {
@@ -94,6 +116,30 @@ function getStatusContent(
     };
   }
 
+  if (showManualFallbackHint) {
+    return {
+      body: 'If the camera misses it, type the barcode number below.',
+      eyebrow: 'Manual Entry',
+      title: 'Need a faster route?',
+    };
+  }
+
+  if (scanQuality === 'retry') {
+    return {
+      body: 'Move the barcode closer and keep the camera steady.',
+      eyebrow: 'Retry',
+      title: 'Almost there',
+    };
+  }
+
+  if (scanQuality === 'poor') {
+    return {
+      body: 'Glare or distance may be getting in the way. Typing the barcode is quicker now.',
+      eyebrow: 'Retry',
+      title: 'Camera needs a cleaner read',
+    };
+  }
+
   return {
     body: 'Point the camera at a barcode.',
     eyebrow: 'Ready',
@@ -112,6 +158,8 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   const [lastScan, setLastScan] = useState<LastScanResult | null>(null);
   const [manualBarcodeInput, setManualBarcodeInput] = useState('');
   const [manualEntryError, setManualEntryError] = useState<string | null>(null);
+  const [readyStartedAt, setReadyStartedAt] = useState(Date.now());
+  const [scanQuality, setScanQuality] = useState<ScanQuality>('good');
   const [scannerState, setScannerState] = useState<ScannerState>('ready');
   const [isManualBarcodeEntryEnabled, setIsManualBarcodeEntryEnabled] =
     useState(true);
@@ -133,10 +181,34 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     setIsLookupInFlight(false);
     setLastScan(null);
     setManualEntryError(null);
+    setReadyStartedAt(Date.now());
+    setScanQuality('good');
     setScannerState('ready');
     activeLookupRef.current = false;
     recentScanRef.current = null;
   }, [isFocused]);
+
+  useEffect(() => {
+    if (scannerState !== 'ready' || !isFocused || !isAppActive) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      const elapsed = Date.now() - readyStartedAt;
+
+      if (elapsed >= POOR_SCAN_PROMPT_MS) {
+        setScanQuality('poor');
+      } else if (elapsed >= RETRY_SCAN_PROMPT_MS) {
+        setScanQuality('retry');
+      } else {
+        setScanQuality('good');
+      }
+    }, 250);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isAppActive, isFocused, readyStartedAt, scannerState]);
 
   useEffect(() => {
     let isMounted = true;
@@ -184,6 +256,7 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     setManualEntryError(null);
     setIsLookupInFlight(true);
     setLastScan({ barcode, barcodeType: barcodeType ?? null });
+    setReadyStartedAt(Date.now());
     setScannerState('loading');
 
     try {
@@ -266,6 +339,8 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
     setManualEntryError(null);
     setCameraResetKey((value) => value + 1);
     setLastScan(null);
+    setReadyStartedAt(Date.now());
+    setScanQuality('good');
     setScannerState('ready');
     activeLookupRef.current = false;
     recentScanRef.current = null;
@@ -310,7 +385,17 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   }
 
   const hasPermission = cameraPermission.granted;
-  const statusContent = getStatusContent(scannerState, lastScan, errorMessage);
+  const showManualFallbackHint =
+    scannerState === 'ready' &&
+    scanQuality === 'poor' &&
+    isManualBarcodeEntryEnabled;
+  const statusContent = getStatusContent(
+    scannerState,
+    lastScan,
+    errorMessage,
+    scanQuality,
+    showManualFallbackHint
+  );
   const scannerHeight =
     windowHeight < 700 ? 330 : windowHeight < 780 ? 360 : 400;
   const cameraKey = `scanner-${cameraResetKey}-${isFocused ? 'focused' : 'idle'}`;
@@ -329,17 +414,10 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            <View style={styles.header}>
-              <View style={styles.eyebrowChip}>
-                <Text style={styles.eyebrowText}>Camera Scanner</Text>
-              </View>
-              <Text style={styles.title}>Scan barcode</Text>
-            </View>
-
             {hasPermission ? (
               <BarcodeScannerPanel
                 cameraKey={cameraKey}
-                helperText={getHelperText(scannerState)}
+                helperText={getHelperText(scannerState, scanQuality)}
                 height={scannerHeight}
                 // Unmount the camera when the screen is paused or backgrounded so
                 // Android can reclaim camera and preview memory immediately.
@@ -347,7 +425,7 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
                 isFocused={isFocused && isAppActive}
                 onCameraMountError={handleCameraMountError}
                 onBarcodeScanned={handleBarcodeScanned}
-                overlayLabel={getOverlayLabel(scannerState)}
+                overlayLabel={getOverlayLabel(scannerState, scanQuality)}
               />
             ) : (
               <View style={styles.permissionCard}>
@@ -432,26 +510,6 @@ const createStyles = (
     },
     scrollContent: {
       gap: 18,
-    },
-    eyebrowChip: {
-      alignSelf: 'flex-start',
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderRadius: 999,
-      borderWidth: 1,
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-    },
-    eyebrowText: {
-      color: colors.primary,
-      fontFamily: typography.accentFontFamily,
-      fontSize: 12,
-      fontWeight: '700',
-      letterSpacing: 0.2,
-      textTransform: 'uppercase',
-    },
-    header: {
-      gap: 10,
     },
     loadingContainer: {
       alignItems: 'center',
@@ -548,18 +606,5 @@ const createStyles = (
       fontFamily: typography.headingFontFamily,
       fontSize: 20,
       fontWeight: '800',
-    },
-    subtitle: {
-      color: colors.textMuted,
-      fontFamily: typography.bodyFontFamily,
-      fontSize: 15,
-      lineHeight: 23,
-    },
-    title: {
-      color: colors.text,
-      fontFamily: typography.displayFontFamily,
-      fontSize: 26,
-      fontWeight: '800',
-      lineHeight: 32,
     },
   });

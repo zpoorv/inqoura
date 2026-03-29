@@ -7,6 +7,7 @@ import type { Block } from '@infinitered/react-native-mlkit-text-recognition';
 
 import { harmfulIngredientRules } from '../constants/harmfulIngredients';
 import { mockIngredientExplanations } from '../constants/ingredientExplanations';
+import type { OcrParseDiagnostics } from '../types/product';
 
 export class IngredientLabelOcrError extends Error {
   kind: 'no-ingredients' | 'no-text' | 'unsupported';
@@ -26,8 +27,11 @@ export type IngredientLabelImageInput = {
 
 export type IngredientLabelOcrResult = {
   ingredientsText: string;
+  matchedIngredientCount: number;
+  parseCompleteness: number;
   qualityNotes: string[];
   rawText: string;
+  rejectedNoiseCount: number;
   sourceImageUri: string;
 };
 
@@ -671,6 +675,40 @@ function buildQualityNotes(
   return qualityNotes;
 }
 
+function buildParseDiagnostics(
+  rawText: string,
+  ingredientsText: string
+): OcrParseDiagnostics {
+  const matchedIngredientCount = splitIngredientChunks(ingredientsText).length;
+  const rejectedNoiseCount = countKeywordSignals(rawText, OCR_NOISE_KEYWORDS);
+  const sourceSignalCount = Math.max(
+    matchedIngredientCount,
+    countKeywordSignals(ingredientsText, OCR_INGREDIENT_SIGNAL_KEYWORDS)
+  );
+  const completenessBase =
+    matchedIngredientCount >= 8
+      ? 0.95
+      : matchedIngredientCount >= 5
+        ? 0.78
+        : matchedIngredientCount >= 3
+          ? 0.58
+          : matchedIngredientCount >= 1
+            ? 0.4
+            : 0.18;
+  const signalBonus = Math.min(sourceSignalCount * 0.03, 0.18);
+  const noisePenalty = Math.min(rejectedNoiseCount * 0.05, 0.28);
+  const parseCompleteness = Math.max(
+    0.08,
+    Math.min(1, completenessBase + signalBonus - noisePenalty)
+  );
+
+  return {
+    matchedIngredientCount,
+    parseCompleteness: Number(parseCompleteness.toFixed(2)),
+    rejectedNoiseCount,
+  };
+}
+
 async function buildCropVariants(input: IngredientLabelImageInput) {
   const variants: ImageVariant[] = [];
 
@@ -847,6 +885,7 @@ export async function recognizeIngredientLabelImage(
 
     return {
       ingredientsText: bestResult.candidate.text,
+      ...buildParseDiagnostics(bestResult.rawText, bestResult.candidate.text),
       qualityNotes: bestResult.qualityNotes,
       rawText: bestResult.rawText,
       sourceImageUri: input.uri,

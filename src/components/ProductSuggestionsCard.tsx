@@ -30,8 +30,8 @@ export default function ProductSuggestionsCard({
       </Text>
       <Text style={styles.subtitle}>
         {hasAdminSuggestions
-          ? 'These links were added by an Inqoura admin for this product.'
-          : 'These are rule-based improvement ideas for similar products and can later be replaced by real catalog suggestions.'}
+          ? 'These were added to help you compare better picks for this product.'
+          : 'These are simpler directions to look for the next time you shop.'}
       </Text>
 
       <View style={styles.list}>

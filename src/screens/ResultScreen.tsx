@@ -32,7 +32,6 @@ import {
 import type { PremiumEntitlement } from '../models/premium';
 import type { ShareCardStyleId } from '../models/shareCardStyle';
 import type { RootStackParamList } from '../navigation/types';
-import type { ProductSourceInfo } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import { syncDietProfileForCurrentUser } from '../services/dietProfileStorage';
@@ -62,10 +61,10 @@ import {
 } from '../utils/ingredientHighlighting';
 import { formatProductName } from '../utils/productDisplay';
 import type { ProductMetric } from '../utils/productInsights';
-import { isLikelyFoodProduct } from '../utils/productType';
 import {
   buildResultAnalysis,
   type ExplainedIngredient,
+  type ResultConfidence,
   type ResultAnalysis,
 } from '../utils/resultAnalysis';
 import { buildShareableResultCaption } from '../utils/shareableResult';
@@ -175,9 +174,25 @@ function getScanCompletionCopy(resultSource: ScanResultSource) {
   };
 }
 
-function getQuickUseGuidance(score: number | null, isFoodProduct: boolean) {
-  if (!isFoodProduct || score === null) {
-    return 'Not scored as a food item';
+function getQuickUseGuidance(
+  score: number | null,
+  foodStatus: ResultAnalysis['foodStatus'] | null,
+  confidence: ResultConfidence | null
+) {
+  if (foodStatus === 'non-food') {
+    return 'Not scored as food';
+  }
+
+  if (foodStatus === 'unclear') {
+    return 'Needs a closer look';
+  }
+
+  if (confidence === 'low') {
+    return 'Use as a rough guide';
+  }
+
+  if (score === null) {
+    return 'Needs more detail';
   }
 
   if (score >= 80) {
@@ -195,21 +210,28 @@ function getQuickUseGuidance(score: number | null, isFoodProduct: boolean) {
   return 'Not ideal for frequent use';
 }
 
-function getSourceAttributionText(
-  sources: ProductSourceInfo[] | undefined,
-  resultSource: ScanResultSource
-) {
-  if (resultSource === 'ingredient-ocr') {
-    return 'Based on the ingredient photo.';
+function getConfidenceTone(colors: AppColors, confidence: ResultConfidence | null) {
+  if (confidence === 'high') {
+    return colors.success;
   }
 
-  const primarySource = sources?.find((source) => source.status === 'used');
-
-  if (!primarySource) {
-    return 'Based on available product details.';
+  if (confidence === 'medium') {
+    return colors.warning;
   }
 
-  return `Based on ${primarySource.label}.`;
+  return colors.danger;
+}
+
+function getConfidenceLabel(confidence: ResultConfidence | null) {
+  if (confidence === 'high') {
+    return 'High confidence';
+  }
+
+  if (confidence === 'medium') {
+    return 'Partial data';
+  }
+
+  return 'Needs review';
 }
 
 export default function ResultScreen({ navigation, route }: ResultScreenProps) {
@@ -237,7 +259,6 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     enableRuleBasedSuggestions: boolean;
     resultDisclaimer: string | null;
     shareFooterText: string | null;
-    showSourceAttribution: boolean;
   } | null>(null);
   const [analysisResult, setAnalysisResult] = useState<ResultAnalysis | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<DietProfileId>(
@@ -260,21 +281,14 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     () => formatProductName(product?.name),
     [product?.name]
   );
-  const isFoodProduct = useMemo(() => isLikelyFoodProduct(product), [product]);
-
   const barcodeFormatLabel = barcodeType
     ? barcodeType.replace(/_/g, ' ').toUpperCase()
     : null;
-  const heroEyebrow =
-    resultSource === 'ingredient-ocr' ? 'Ingredient Label OCR' : 'Scanned Barcode';
-  const heroPrimaryText =
-    resultSource === 'ingredient-ocr' ? 'Ingredient text extracted' : barcode;
-  const heroBodyText =
-    resultSource === 'ingredient-ocr'
-      ? 'Ingredient label read.'
-      : 'Barcode matched.';
   const scanCompletionCopy = getScanCompletionCopy(resultSource);
   const insights = analysisResult?.insights ?? null;
+  const confidence = analysisResult?.confidence ?? null;
+  const confidenceReason = analysisResult?.confidenceReason ?? null;
+  const foodStatus = analysisResult?.foodStatus ?? null;
   const ingredientAnalysis = analysisResult?.ingredientAnalysis ?? null;
   const alternativeSuggestions = useMemo(
     () => analysisResult?.suggestions ?? [],
@@ -311,17 +325,12 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     [windowWidth]
   );
   const quickUseGuidance = useMemo(
-    () => getQuickUseGuidance(insights?.smartScore ?? null, isFoodProduct),
-    [insights?.smartScore, isFoodProduct]
-  );
-  const sourceAttributionText = useMemo(
-    () => getSourceAttributionText(product?.sources, resultSource),
-    [product?.sources, resultSource]
+    () => getQuickUseGuidance(insights?.smartScore ?? null, foodStatus, confidence),
+    [confidence, foodStatus, insights?.smartScore]
   );
   const disclaimerText =
     adminConfig?.resultDisclaimer ||
     'Quick guide only.';
-  const showSourceAttribution = adminConfig?.showSourceAttribution ?? true;
   const activeSharePreviewStyleId = premiumEntitlement.isPremium
     ? draftShareCardStyleId
     : 'classic';
@@ -427,7 +436,6 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         enableRuleBasedSuggestions: config.enableRuleBasedSuggestions,
         resultDisclaimer: config.resultDisclaimer,
         shareFooterText: config.shareFooterText,
-        showSourceAttribution: config.showSourceAttribution,
       });
     };
 
@@ -674,7 +682,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
           {!analysisResult ? (
             <ResultCardSkeleton />
-          ) : insights && isFoodProduct ? (
+          ) : insights && foodStatus !== 'non-food' && foodStatus !== 'unclear' ? (
             <>
               <View style={styles.scoreHeroMainRow}>
                 <View
@@ -731,6 +739,16 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                   </Text>
                   <Text style={styles.scoreHeroVerdict}>{quickUseGuidance}</Text>
                   <Text style={styles.scoreHeroSummary}>{insights.summary}</Text>
+                  {confidence ? (
+                    <Text
+                      style={[
+                        styles.scoreHeroConfidence,
+                        { color: getConfidenceTone(colors, confidence) },
+                      ]}
+                    >
+                      {`${getConfidenceLabel(confidence)} · ${confidenceReason}`}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
 
@@ -776,33 +794,18 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
               ) : null}
 
               <View style={styles.trustBlock}>
-                {showSourceAttribution ? (
-                  <>
-                    <Text style={styles.trustLabel}>Source</Text>
-                    <Text style={styles.trustText}>{sourceAttributionText}</Text>
-                  </>
-                ) : null}
                 <Text style={styles.disclaimerText}>{disclaimerText}</Text>
               </View>
             </>
           ) : (
             <View style={styles.trustBlock}>
-              <Text style={styles.scoreHeroVerdict}>Not scored as food</Text>
+              <Text style={styles.scoreHeroVerdict}>{quickUseGuidance}</Text>
               <Text style={styles.scoreHeroSummary}>
-                Health scoring is only shown for edible food and drink products.
+                {confidenceReason || insights?.summary || 'We need clearer product details before scoring this.'}
               </Text>
               <Text style={styles.disclaimerText}>{disclaimerText}</Text>
             </View>
           )}
-        </View>
-
-        <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>{heroEyebrow}</Text>
-          <Text style={styles.heroMetaPrimary}>{heroPrimaryText}</Text>
-          {resultSource === 'barcode' && barcodeFormatLabel ? (
-            <Text style={styles.heroMetaSecondary}>Format: {barcodeFormatLabel}</Text>
-          ) : null}
-          <Text style={styles.heroMetaSecondary}>{heroBodyText}</Text>
         </View>
 
         <View style={styles.infoCard}>
@@ -829,9 +832,12 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                   {[product.brand, product.quantity].filter(Boolean).join(' • ')}
                 </Text>
               ) : null}
+              {barcodeFormatLabel && resultSource === 'barcode' ? (
+                <Text style={styles.statusText}>{barcodeFormatLabel}</Text>
+              ) : null}
               {product.categories.length > 0 ? (
                 <View style={styles.tagWrap}>
-                  {product.categories.slice(0, 4).map((category) => (
+                  {product.categories.slice(0, 3).map((category) => (
                     <View key={category} style={styles.tagChip}>
                       <Text style={styles.tagText}>{category}</Text>
                     </View>
@@ -930,10 +936,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
               Allergens: {product.allergens.join(', ')}
             </Text>
           ) : null}
-
-          {product ? (
+          {product && product.additiveCount > 0 ? (
             <Text style={styles.statusText}>
-              Additives reported: {product.additiveCount}
+              Additives listed: {product.additiveCount}
             </Text>
           ) : null}
         </View>
@@ -983,11 +988,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             </View>
           ) : null}
 
-        {product?.novaGroup ? (
-          <Text style={styles.statusText}>NOVA group: {product.novaGroup}</Text>
-        ) : null}
-        {product?.ecoScore ? (
-          <Text style={styles.statusText}>Eco-Score: {product.ecoScore}</Text>
+        {foodStatus === 'unclear' ? (
+          <Text style={styles.statusText}>
+            This item needs clearer ingredient or nutrition details before we score it fully.
+          </Text>
         ) : null}
       </View>
 
@@ -1378,6 +1382,12 @@ const createStyles = (
     fontFamily: typography.bodyFontFamily,
     fontSize: 15,
     lineHeight: 22,
+  },
+  scoreHeroConfidence: {
+    fontFamily: typography.accentFontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
   },
   scoreHeroTextBlock: {
     flex: 1,
