@@ -5,7 +5,12 @@ export type PremiumFeatureId =
   | 'share-result-card'
   | 'app-look-presets'
   | 'history-personalization'
-  | 'ad-free-experience';
+  | 'ad-free-experience'
+  | 'deeper-result-guidance'
+  | 'advanced-ocr-recovery'
+  | 'weekly-history-insights'
+  | 'history-notifications'
+  | 'favorites-and-comparisons';
 
 export type PremiumEntitlementSource =
   | 'admin-role'
@@ -29,6 +34,11 @@ const PREMIUM_FEATURES: PremiumFeatureId[] = [
   'app-look-presets',
   'history-personalization',
   'ad-free-experience',
+  'deeper-result-guidance',
+  'advanced-ocr-recovery',
+  'weekly-history-insights',
+  'history-notifications',
+  'favorites-and-comparisons',
 ];
 
 export function createDefaultPremiumEntitlement(): PremiumEntitlement {

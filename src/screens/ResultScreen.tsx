@@ -20,8 +20,11 @@ import ViewShot from 'react-native-view-shot';
 
 import { useAppTheme } from '../components/AppThemeProvider';
 import IngredientExplanationModal from '../components/IngredientExplanationModal';
+import PremiumGuidanceCard from '../components/PremiumGuidanceCard';
 import ProductSuggestionsCard from '../components/ProductSuggestionsCard';
+import ReportProductIssueModal from '../components/ReportProductIssueModal';
 import ResultCardSkeleton from '../components/ResultCardSkeleton';
+import ResultTrustCard from '../components/ResultTrustCard';
 import ShareCardPickerModal from '../components/ShareCardPickerModal';
 import ShareResultCard from '../components/ShareResultCard';
 import type { AppColors } from '../constants/theme';
@@ -34,13 +37,24 @@ import type { ShareCardStyleId } from '../models/shareCardStyle';
 import type { RootStackParamList } from '../navigation/types';
 import type { ScanResultSource } from '../types/scanner';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
+import { upsertComparisonSessionEntry } from '../services/comparisonSessionStorage';
+import {
+  buildCorrectionReportSummary,
+  submitCorrectionReport,
+} from '../services/correctionReportService';
 import { syncDietProfileForCurrentUser } from '../services/dietProfileStorage';
+import {
+  loadSavedProductCollections,
+  toggleComparisonProductCode,
+  toggleFavoriteProductCode,
+} from '../services/favoriteProductsService';
 import {
   consumeFeatureQuota,
   loadFeatureQuotaSnapshot,
   type FeatureQuotaSnapshot,
 } from '../services/featureUsageStorage';
 import {
+  hasPremiumFeatureAccess,
   loadCurrentPremiumEntitlement,
 } from '../services/premiumEntitlementService';
 import { saveScanToHistory } from '../services/scanHistoryStorage';
@@ -62,6 +76,7 @@ import {
 import { formatProductName } from '../utils/productDisplay';
 import type { ProductMetric } from '../utils/productInsights';
 import {
+  type DecisionVerdict,
   buildResultAnalysis,
   type ExplainedIngredient,
   type ResultConfidence,
@@ -175,10 +190,27 @@ function getScanCompletionCopy(resultSource: ScanResultSource) {
 }
 
 function getQuickUseGuidance(
+  verdict: DecisionVerdict | null,
   score: number | null,
   foodStatus: ResultAnalysis['foodStatus'] | null,
   confidence: ResultConfidence | null
 ) {
+  if (verdict === 'good-regular-pick') {
+    return 'Good regular pick';
+  }
+
+  if (verdict === 'okay-occasionally') {
+    return 'Okay occasionally';
+  }
+
+  if (verdict === 'not-ideal-often') {
+    return 'Not ideal often';
+  }
+
+  if (verdict === 'need-better-data') {
+    return 'Need better data';
+  }
+
   if (foodStatus === 'non-food') {
     return 'Not scored as food';
   }
@@ -269,6 +301,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
     getPremiumSession()
   );
+  const [favoriteProductCodes, setFavoriteProductCodes] = useState<string[]>([]);
+  const [comparisonProductCodes, setComparisonProductCodes] = useState<string[]>([]);
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
   const [shareCardStyleId, setShareCardStyleId] =
     useState<ShareCardStyleId>('classic');
   const [draftShareCardStyleId, setDraftShareCardStyleId] =
@@ -288,8 +323,12 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const insights = analysisResult?.insights ?? null;
   const confidence = analysisResult?.confidence ?? null;
   const confidenceReason = analysisResult?.confidenceReason ?? null;
+  const decisionSummary = analysisResult?.decisionSummary ?? null;
+  const decisionVerdict = analysisResult?.decisionVerdict ?? null;
   const foodStatus = analysisResult?.foodStatus ?? null;
   const ingredientAnalysis = analysisResult?.ingredientAnalysis ?? null;
+  const topConcern = analysisResult?.topConcern ?? null;
+  const trustSnapshot = analysisResult?.trustSnapshot ?? null;
   const alternativeSuggestions = useMemo(
     () => analysisResult?.suggestions ?? [],
     [analysisResult?.suggestions]
@@ -320,13 +359,44 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
   const selectedIngredientExplanation: IngredientExplanationLookup | null =
     selectedIngredient?.explanationLookup ?? null;
   const shareableResult = analysisResult?.shareableResult ?? null;
+  const premiumGuidance = analysisResult?.premiumGuidance ?? null;
   const shareCardWidth = useMemo(
     () => Math.min(windowWidth - 64, 360),
     [windowWidth]
   );
+  const productIdentifier = product.code || barcode;
+  const isFavorite = favoriteProductCodes.includes(productIdentifier);
+  const isSavedForCompare = comparisonProductCodes.includes(productIdentifier);
+  const canShowPremiumGuidance = hasPremiumFeatureAccess(
+    'deeper-result-guidance',
+    premiumEntitlement
+  );
+  const canShowAdvancedOcrRecovery = hasPremiumFeatureAccess(
+    'advanced-ocr-recovery',
+    premiumEntitlement
+  );
+  const canUseSavedProducts = hasPremiumFeatureAccess(
+    'favorites-and-comparisons',
+    premiumEntitlement
+  );
+  const renderedPremiumGuidance =
+    canShowPremiumGuidance && premiumGuidance
+      ? {
+          ...premiumGuidance,
+          confidenceAssist: canShowAdvancedOcrRecovery
+            ? premiumGuidance.confidenceAssist
+            : null,
+        }
+      : null;
   const quickUseGuidance = useMemo(
-    () => getQuickUseGuidance(insights?.smartScore ?? null, foodStatus, confidence),
-    [confidence, foodStatus, insights?.smartScore]
+    () =>
+      getQuickUseGuidance(
+        decisionVerdict,
+        insights?.smartScore ?? null,
+        foodStatus,
+        confidence
+      ),
+    [confidence, decisionVerdict, foodStatus, insights?.smartScore]
   );
   const disclaimerText =
     adminConfig?.resultDisclaimer ||
@@ -380,9 +450,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
     const restoreShareAccess = async () => {
       const entitlement = await loadCurrentPremiumEntitlement();
-      const [quotaSnapshot, syncedShareCardStyleId] = await Promise.all([
+      const [quotaSnapshot, syncedShareCardStyleId, savedCollections] = await Promise.all([
         loadFeatureQuotaSnapshot('share-result-card', entitlement),
         syncShareCardStyleForCurrentUser(),
+        loadSavedProductCollections(),
       ]);
 
       if (!isMounted) {
@@ -395,6 +466,8 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       setDraftShareCardStyleId(
         entitlement.isPremium ? syncedShareCardStyleId : 'classic'
       );
+      setFavoriteProductCodes(savedCollections.favoriteProductCodes);
+      setComparisonProductCodes(savedCollections.comparisonProductCodes);
     };
 
     const unsubscribe = subscribePremiumSession((entitlement) => {
@@ -406,6 +479,8 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       if (!entitlement.isPremium) {
         setShareCardStyleId('classic');
         setDraftShareCardStyleId('classic');
+        setFavoriteProductCodes([]);
+        setComparisonProductCodes([]);
       }
 
       void loadFeatureQuotaSnapshot('share-result-card', entitlement).then((quotaSnapshot) => {
@@ -421,6 +496,26 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       unsubscribe();
     };
   }, []);
+
+  const handleToggleFavorite = async () => {
+    if (!canUseSavedProducts) {
+      navigation.navigate('Premium', { featureId: 'favorites-and-comparisons' });
+      return;
+    }
+
+    const nextCodes = await toggleFavoriteProductCode(productIdentifier);
+    setFavoriteProductCodes(nextCodes);
+  };
+
+  const handleToggleCompare = async () => {
+    if (!canUseSavedProducts) {
+      navigation.navigate('Premium', { featureId: 'favorites-and-comparisons' });
+      return;
+    }
+
+    const nextCodes = await toggleComparisonProductCode(productIdentifier);
+    setComparisonProductCodes(nextCodes);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -500,6 +595,24 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     product,
     selectedProfileId,
   ]);
+
+  useEffect(() => {
+    if (!analysisResult) {
+      return;
+    }
+
+    void upsertComparisonSessionEntry({
+      addedAt: new Date().toISOString(),
+      barcode,
+      confidence: analysisResult.confidence,
+      decisionSummary: analysisResult.decisionSummary,
+      decisionVerdict: analysisResult.decisionVerdict,
+      name: displayProductName,
+      product,
+      profileId: selectedProfileId,
+      topConcern: analysisResult.topConcern,
+    });
+  }, [analysisResult, barcode, displayProductName, product, selectedProfileId]);
 
   const updateShareCardImageReady = (ready: boolean) => {
     shareCardImageReadyRef.current = ready;
@@ -632,6 +745,42 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     }
   };
 
+  const handleOpenShelfMode = () => {
+    navigation.navigate('ShelfMode');
+  };
+
+  const handleSubmitCorrectionReport = async (
+    reason: Parameters<typeof buildCorrectionReportSummary>[0]
+  ) => {
+    if (!analysisResult) {
+      return;
+    }
+
+    setIsReportModalVisible(false);
+
+    try {
+      await submitCorrectionReport({
+        barcode,
+        confidence: analysisResult.confidence,
+        foodStatus: analysisResult.foodStatus,
+        priorityScore:
+          product.adminMetadata?.adminPriorityScore ??
+          (analysisResult.confidence === 'low' ? 90 : 55),
+        productName: displayProductName,
+        reason,
+        resultSource,
+        summary: buildCorrectionReportSummary(reason, analysisResult.topConcern),
+        topConcern: analysisResult.topConcern,
+      });
+      Alert.alert('Review request sent', 'We queued this product for a manual trust check.');
+    } catch {
+      Alert.alert(
+        'Could not send request',
+        'Try again in a moment if this product still looks off.'
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -738,7 +887,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                     {`Grade ${insights.gradeLabel} • ${healthScoreTheme.label}`}
                   </Text>
                   <Text style={styles.scoreHeroVerdict}>{quickUseGuidance}</Text>
-                  <Text style={styles.scoreHeroSummary}>{insights.summary}</Text>
+                  <Text style={styles.scoreHeroSummary}>
+                    {decisionSummary || insights.summary}
+                  </Text>
                   {confidence ? (
                     <Text
                       style={[
@@ -748,6 +899,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                     >
                       {`${getConfidenceLabel(confidence)} · ${confidenceReason}`}
                     </Text>
+                  ) : null}
+                  {topConcern ? (
+                    <Text style={styles.topConcernText}>Main issue: {topConcern}</Text>
                   ) : null}
                 </View>
               </View>
@@ -822,6 +976,17 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           ) : null}
 
           <Text style={styles.value}>{displayProductName}</Text>
+          {product.adminMetadata?.reviewStatus &&
+          product.adminMetadata.reviewStatus !== 'draft' ? (
+            <View style={styles.reviewBadge}>
+              <Text style={styles.reviewBadgeText}>
+                {product.adminMetadata.reviewBadgeCopy ||
+                  (product.adminMetadata.reviewStatus === 'reviewed'
+                    ? 'Reviewed by Inqoura'
+                    : 'Improved by Inqoura')}
+              </Text>
+            </View>
+          ) : null}
           {product?.nameReason ? (
             <Text style={styles.statusText}>{product.nameReason}</Text>
           ) : null}
@@ -844,17 +1009,73 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                   ))}
                 </View>
               ) : null}
+              <View style={styles.savedActionRow}>
+                <Pressable onPress={handleOpenShelfMode} style={styles.savedActionChip}>
+                  <Text style={styles.savedActionText}>Open Shelf Mode</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setIsReportModalVisible(true)}
+                  style={styles.savedActionChip}
+                >
+                  <Text style={styles.savedActionText}>Report Wrong Info</Text>
+                </Pressable>
+              </View>
+              <View style={styles.savedActionRow}>
+                <Pressable
+                  onPress={() => void handleToggleFavorite()}
+                  style={[
+                    styles.savedActionChip,
+                    isFavorite && styles.savedActionChipSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.savedActionText,
+                      isFavorite && styles.savedActionTextSelected,
+                    ]}
+                  >
+                    {isFavorite ? 'Saved Favorite' : 'Save Favorite'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => void handleToggleCompare()}
+                  style={[
+                    styles.savedActionChip,
+                    isSavedForCompare && styles.savedActionChipSelected,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.savedActionText,
+                      isSavedForCompare && styles.savedActionTextSelected,
+                    ]}
+                  >
+                    {isSavedForCompare ? 'Saved For Compare' : 'Save For Compare'}
+                  </Text>
+                </Pressable>
+              </View>
+              {!canUseSavedProducts ? (
+                <Text style={styles.statusText}>
+                  Premium saves favorites and keeps two products ready to compare.
+                </Text>
+              ) : null}
             </>
           ) : (
             <Text style={styles.statusText}>No product details yet.</Text>
           )}
         </View>
 
+        {trustSnapshot ? <ResultTrustCard trust={trustSnapshot} /> : null}
+
         {!analysisResult ? (
           <ResultCardSkeleton />
         ) : (
           <ProductSuggestionsCard suggestions={displayedSuggestions} />
         )}
+
+        {renderedPremiumGuidance ? (
+          <PremiumGuidanceCard guidance={renderedPremiumGuidance} />
+        ) : null}
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>Ingredients</Text>
@@ -1024,6 +1245,11 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         lookup={selectedIngredientExplanation}
         onClose={() => setSelectedIngredient(null)}
         visible={selectedIngredient !== null}
+      />
+      <ReportProductIssueModal
+        onClose={() => setIsReportModalVisible(false)}
+        onSelectReason={(reason) => void handleSubmitCorrectionReport(reason)}
+        visible={isReportModalVisible}
       />
       {shareableResult ? (
         <ShareCardPickerModal
@@ -1389,6 +1615,19 @@ const createStyles = (
     fontWeight: '700',
     lineHeight: 19,
   },
+  reviewBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryMuted,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  reviewBadgeText: {
+    color: colors.primary,
+    fontFamily: typography.accentFontFamily,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   scoreHeroTextBlock: {
     flex: 1,
     gap: 6,
@@ -1410,6 +1649,13 @@ const createStyles = (
     fontSize: 28,
     fontWeight: '800',
     lineHeight: 34,
+  },
+  topConcernText: {
+    color: colors.warning,
+    fontFamily: typography.bodyFontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
   },
   safeText: {
     color: colors.success,
@@ -1466,6 +1712,32 @@ const createStyles = (
   scoreText: {
     fontSize: 18,
     fontWeight: '800',
+  },
+  savedActionChip: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  savedActionChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  savedActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  savedActionText: {
+    color: colors.primary,
+    fontFamily: typography.accentFontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  savedActionTextSelected: {
+    color: colors.surface,
   },
   sourceDot: {
     borderRadius: 999,

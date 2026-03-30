@@ -1,10 +1,40 @@
 import type { ScanHistoryEntry } from '../services/scanHistoryStorage';
 
+export type HistoryTrend = 'improving' | 'steady' | 'watch';
+
 export type HistoryInsight = {
   body: string;
   id: string;
   tone: 'good' | 'neutral' | 'warning';
   title: string;
+};
+
+export type HistoryRepeatBuyCandidate = {
+  id: string;
+  name: string;
+  riskSummary: string;
+  scanCount: number;
+};
+
+export type HistoryReplacementCandidate = {
+  id: string;
+  name: string;
+  reason: string;
+};
+
+export type HistoryNotification = {
+  body: string;
+  id: string;
+  title: string;
+  tone: HistoryInsight['tone'];
+};
+
+export type HistoryOverview = {
+  insights: HistoryInsight[];
+  notifications: HistoryNotification[];
+  repeatBuyCandidates: HistoryRepeatBuyCandidate[];
+  replacementCandidates: HistoryReplacementCandidate[];
+  weeklyTrend: HistoryTrend;
 };
 
 type BuildHistoryInsightsOptions = {
@@ -88,8 +118,21 @@ function buildPremiumPatternInsights(historyEntries: ScanHistoryEntry[]) {
   const lowScoreCount = weeklyEntries.filter(
     (entry) => typeof entry.score === 'number' && entry.score < 50
   ).length;
+  const categoryCounts = new Map<string, { count: number; totalScore: number }>();
 
   const insights: HistoryInsight[] = [];
+
+  weeklyEntries.forEach((entry) => {
+    const category = entry.product.categories[0] || 'Unsorted';
+    const currentCategory = categoryCounts.get(category) || {
+      count: 0,
+      totalScore: 0,
+    };
+    categoryCounts.set(category, {
+      count: currentCategory.count + 1,
+      totalScore: currentCategory.totalScore + (entry.score ?? 0),
+    });
+  });
 
   if (harmfulCount > 0) {
     insights.push({
@@ -121,7 +164,84 @@ function buildPremiumPatternInsights(historyEntries: ScanHistoryEntry[]) {
     });
   }
 
+  const bestCategory = [...categoryCounts.entries()]
+    .filter(([, value]) => value.count >= 2)
+    .sort(
+      (left, right) =>
+        right[1].totalScore / right[1].count - left[1].totalScore / left[1].count
+    )[0];
+
+  if (bestCategory) {
+    insights.push({
+      body: `Your recent ${bestCategory[0].toLowerCase()} scans are scoring better than the rest.`,
+      id: 'best-category-week',
+      title: `${bestCategory[0]} is your best-performing recent category`,
+      tone: 'good',
+    });
+  }
+
   return insights;
+}
+
+export function buildHistoryNotifications(
+  historyEntries: ScanHistoryEntry[],
+  cadence: 'smart' | 'weekly' = 'weekly'
+) {
+  if (historyEntries.length === 0) {
+    return [] as HistoryNotification[];
+  }
+
+  const weekStart = getStartOfWeek();
+  const weeklyEntries = historyEntries.filter(
+    (entry) => new Date(entry.scannedAt).getTime() >= weekStart.getTime()
+  );
+  const highRiskCount = weeklyEntries.filter(
+    (entry) => entry.riskLevel === 'high-risk'
+  ).length;
+  const strongPickCount = weeklyEntries.filter(
+    (entry) => typeof entry.score === 'number' && entry.score >= 80
+  ).length;
+  const repeatLowScoreEntry = historyEntries.find(
+    (entry) => entry.scanCount >= 2 && typeof entry.score === 'number' && entry.score < 55
+  );
+
+  const notifications: HistoryNotification[] = [];
+
+  if (highRiskCount > 0) {
+    notifications.push({
+      body:
+        highRiskCount === 1
+          ? 'One recent scan landed in the stronger warning zone.'
+          : `${highRiskCount} recent scans landed in the stronger warning zone.`,
+      id: 'weekly-warning',
+      title: 'Caution streak this week',
+      tone: 'warning',
+    });
+  }
+
+  if (strongPickCount >= 3) {
+    notifications.push({
+      body: 'You have a healthy streak going in your recent scans.',
+      id: 'weekly-strong',
+      title: 'Stronger picks are building up',
+      tone: 'good',
+    });
+  }
+
+  if (repeatLowScoreEntry) {
+    notifications.push({
+      body: `${repeatLowScoreEntry.name} keeps showing up as a lower-scoring repeat buy.`,
+      id: 'repeat-low-score',
+      title: 'One repeat buy may be worth replacing',
+      tone: 'warning',
+    });
+  }
+
+  if (cadence === 'smart') {
+    return notifications.slice(0, 1);
+  }
+
+  return notifications.slice(0, 2);
 }
 
 export function buildHistoryInsights(
@@ -142,4 +262,70 @@ export function buildHistoryInsights(
     0,
     4
   );
+}
+
+export function buildRepeatBuyCandidates(historyEntries: ScanHistoryEntry[]) {
+  return [...historyEntries]
+    .filter((entry) => entry.scanCount >= 2)
+    .sort((left, right) => right.scanCount - left.scanCount)
+    .slice(0, 3)
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      riskSummary: entry.riskSummary,
+      scanCount: entry.scanCount,
+    }));
+}
+
+export function buildReplacementCandidates(historyEntries: ScanHistoryEntry[]) {
+  return [...historyEntries]
+    .filter((entry) => typeof entry.score === 'number' && entry.score < 60)
+    .sort((left, right) => (left.score ?? 0) - (right.score ?? 0))
+    .slice(0, 3)
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      reason: entry.riskSummary,
+    }));
+}
+
+export function buildWeeklyTrend(historyEntries: ScanHistoryEntry[]): HistoryTrend {
+  const weekStart = getStartOfWeek();
+  const weeklyEntries = historyEntries.filter(
+    (entry) => new Date(entry.scannedAt).getTime() >= weekStart.getTime()
+  );
+  const weeklyAverage =
+    weeklyEntries
+      .filter((entry) => typeof entry.score === 'number')
+      .reduce((sum, entry) => sum + (entry.score ?? 0), 0) /
+    Math.max(
+      weeklyEntries.filter((entry) => typeof entry.score === 'number').length,
+      1
+    );
+
+  if (weeklyAverage >= 75) {
+    return 'improving';
+  }
+
+  if (weeklyAverage >= 55) {
+    return 'steady';
+  }
+
+  return 'watch';
+}
+
+export function buildHistoryOverview(
+  historyEntries: ScanHistoryEntry[],
+  options: BuildHistoryInsightsOptions = {}
+): HistoryOverview {
+  return {
+    insights: buildHistoryInsights(historyEntries, options),
+    notifications: buildHistoryNotifications(
+      historyEntries,
+      options.includePremiumPatterns ? 'weekly' : 'smart'
+    ),
+    repeatBuyCandidates: buildRepeatBuyCandidates(historyEntries),
+    replacementCandidates: buildReplacementCandidates(historyEntries),
+    weeklyTrend: buildWeeklyTrend(historyEntries),
+  };
 }

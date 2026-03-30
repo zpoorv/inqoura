@@ -29,6 +29,7 @@ export type RootStackParamList = {
         profileId?: DietProfileId;
       }
     | undefined;
+  ShelfMode: undefined;
   Settings: undefined;
   SignUp: undefined;
   Result: {

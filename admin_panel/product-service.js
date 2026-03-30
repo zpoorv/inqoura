@@ -31,6 +31,7 @@ export async function loadEditableProduct(barcode) {
 export function buildEmptyProductDraft(barcode) {
   return {
     additiveTags: '',
+    adminPriorityScore: '',
     adminGradeLabel: '',
     adminScore: '',
     adminSummary: '',
@@ -50,6 +51,8 @@ export function buildEmptyProductDraft(barcode) {
     notes: '',
     protein100g: '',
     quantity: '',
+    reviewBadgeCopy: '',
+    reviewStatus: '',
     salt100g: '',
     saturatedFat100g: '',
     sourceNote: '',
@@ -92,6 +95,7 @@ function buildDraft(barcode, offProduct, override) {
 
   return {
     additiveTags: formatCommaList(override?.additiveTags || offProduct?.additives_tags || []),
+    adminPriorityScore: inputValue(override?.adminPriorityScore),
     adminGradeLabel: override?.adminGradeLabel ?? '',
     adminScore: inputValue(override?.adminScore),
     adminSummary: override?.adminSummary ?? '',
@@ -117,6 +121,8 @@ function buildDraft(barcode, offProduct, override) {
     notes: override?.notes ?? '',
     protein100g: inputValue(nutrition.protein100g),
     quantity: override?.quantity ?? offProduct?.quantity ?? '',
+    reviewBadgeCopy: override?.reviewBadgeCopy ?? '',
+    reviewStatus: override?.reviewStatus ?? '',
     salt100g: inputValue(nutrition.salt100g),
     saturatedFat100g: inputValue(nutrition.saturatedFat100g),
     sourceNote: override?.sourceNote ?? '',
@@ -127,6 +133,7 @@ function buildDraft(barcode, offProduct, override) {
 export function toOverridePayload(formValue) {
   return {
     additiveTags: parseCommaList(formValue.additiveTags),
+    adminPriorityScore: nullableNumber(formValue.adminPriorityScore),
     adminGradeLabel: formValue.adminGradeLabel.trim() || null,
     adminScore: nullableNumber(formValue.adminScore),
     adminSummary: formValue.adminSummary.trim() || null,
@@ -151,6 +158,8 @@ export function toOverridePayload(formValue) {
       sugar100g: nullableNumber(formValue.sugar100g),
     },
     quantity: formValue.quantity.trim() || null,
+    reviewBadgeCopy: formValue.reviewBadgeCopy.trim() || null,
+    reviewStatus: formValue.reviewStatus.trim() || null,
     sourceNote: formValue.sourceNote.trim() || null,
     updatedAt: new Date().toISOString(),
   };

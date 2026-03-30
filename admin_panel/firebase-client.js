@@ -47,6 +47,17 @@ export async function saveUser(profile) {
   await setDoc(doc(db, 'users', profile.uid), profile, { merge: true });
 }
 
+export async function loadCorrectionReports() {
+  const snapshot = await getDocs(collection(db, 'correctionReports'));
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }))
+    .sort((left, right) => (right.createdAt || '').localeCompare(left.createdAt || ''));
+}
+
+export async function saveCorrectionReportStatus(reportId, patch) {
+  await setDoc(doc(db, 'correctionReports', reportId), patch, { merge: true });
+}
+
 export async function loadProductOverride(barcode) {
   const snapshot = await getDoc(doc(db, 'productOverrides', barcode));
   return snapshot.exists() ? snapshot.data() : null;

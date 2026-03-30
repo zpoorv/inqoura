@@ -33,7 +33,10 @@ import {
   IngredientLabelOcrError,
   recognizeIngredientLabelImage,
 } from '../services/ingredientLabelOcr';
-import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
+import {
+  hasPremiumFeatureAccess,
+  loadCurrentPremiumEntitlement,
+} from '../services/premiumEntitlementService';
 import { showRewardedOcrUnlockAd } from '../services/rewardedAdService';
 import { getPremiumSession } from '../store';
 import { buildResolvedProductFromOcr } from '../utils/ocrResolvedProduct';
@@ -129,6 +132,10 @@ export default function IngredientOcrScreen({
 
     try {
       const ocrResult = await recognizeIngredientLabelImage({
+        enhancedRecovery: hasPremiumFeatureAccess(
+          'advanced-ocr-recovery',
+          entitlement
+        ),
         height: height ?? null,
         uri,
         width: width ?? null,

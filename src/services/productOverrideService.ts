@@ -32,6 +32,16 @@ function sanitizeAlternativeLinks(value: ProductOverrideLink[] | null | undefine
     .filter((item) => item.label && item.description && item.url);
 }
 
+function sanitizeReviewStatus(
+  value: ProductOverrideRecord['reviewStatus']
+): 'draft' | 'improved' | 'reviewed' | null {
+  if (value === 'draft' || value === 'improved' || value === 'reviewed') {
+    return value;
+  }
+
+  return null;
+}
+
 function hasCustomAlternativesField(override: ProductOverrideRecord) {
   return Object.prototype.hasOwnProperty.call(override, 'healthierAlternatives');
 }
@@ -103,6 +113,7 @@ export function applyProductOverride(
       additiveCount: sanitizeStringArray(override.additiveTags).length,
       additiveTags: sanitizeStringArray(override.additiveTags),
       adminMetadata: {
+        adminPriorityScore: override.adminPriorityScore ?? null,
         customGradeLabel: override.adminGradeLabel ?? null,
         customScore: override.adminScore ?? null,
         customSummary: override.adminSummary?.trim() || null,
@@ -113,6 +124,8 @@ export function applyProductOverride(
           override.healthierAlternatives
         ),
         notes: override.notes?.trim() || null,
+        reviewBadgeCopy: override.reviewBadgeCopy?.trim() || null,
+        reviewStatus: sanitizeReviewStatus(override.reviewStatus),
         sourceNote: override.sourceNote?.trim() || null,
         updatedAt: override.updatedAt?.trim() || null,
       },
@@ -151,6 +164,8 @@ export function applyProductOverride(
     adminMetadata: {
       customGradeLabel:
         override.adminGradeLabel ?? product.adminMetadata?.customGradeLabel ?? null,
+      adminPriorityScore:
+        override.adminPriorityScore ?? product.adminMetadata?.adminPriorityScore ?? null,
       customScore: override.adminScore ?? product.adminMetadata?.customScore ?? null,
       customSummary:
         override.adminSummary?.trim() || product.adminMetadata?.customSummary || null,
@@ -162,6 +177,14 @@ export function applyProductOverride(
         override.healthierAlternatives
       ),
       notes: override.notes?.trim() || product.adminMetadata?.notes || null,
+      reviewBadgeCopy:
+        override.reviewBadgeCopy?.trim() ||
+        product.adminMetadata?.reviewBadgeCopy ||
+        null,
+      reviewStatus:
+        sanitizeReviewStatus(override.reviewStatus) ??
+        product.adminMetadata?.reviewStatus ??
+        null,
       sourceNote: override.sourceNote?.trim() || product.adminMetadata?.sourceNote || null,
       updatedAt: override.updatedAt?.trim() || product.adminMetadata?.updatedAt || null,
     },

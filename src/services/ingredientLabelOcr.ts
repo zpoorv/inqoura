@@ -20,6 +20,7 @@ export class IngredientLabelOcrError extends Error {
 }
 
 export type IngredientLabelImageInput = {
+  enhancedRecovery?: boolean;
   height?: number | null;
   uri: string;
   width?: number | null;
@@ -581,7 +582,8 @@ function collectParagraphCandidates(rawText: string) {
 
 function parseIngredientSection(
   lines: OrderedLine[],
-  rawText: string
+  rawText: string,
+  input: IngredientLabelImageInput
 ): IngredientCandidate | null {
   const headingCandidates = collectHeadingCandidate(lines).map((candidate) => {
     const scored = scoreIngredientCandidate(candidate);
@@ -635,7 +637,11 @@ function parseIngredientSection(
       return right.text.length - left.text.length;
     })[0];
 
-  if (!bestCandidate || bestCandidate.score < MINIMUM_INGREDIENT_CANDIDATE_SCORE) {
+  const minimumCandidateScore = input.enhancedRecovery
+    ? MINIMUM_INGREDIENT_CANDIDATE_SCORE - 3
+    : MINIMUM_INGREDIENT_CANDIDATE_SCORE;
+
+  if (!bestCandidate || bestCandidate.score < minimumCandidateScore) {
     return null;
   }
 
@@ -670,6 +676,10 @@ function buildQualityNotes(
     qualityNotes.push(
       'Try keeping the ingredient lines larger inside the capture box and reduce glare.'
     );
+  }
+
+  if (candidateScore >= STRONG_INGREDIENT_CANDIDATE_SCORE) {
+    qualityNotes.push('The ingredient block looked clear enough for a stronger read.');
   }
 
   return qualityNotes;
@@ -733,6 +743,18 @@ async function buildCropVariants(input: IngredientLabelImageInput) {
       xRatio: 0.12,
       yRatio: 0.22,
     },
+    ...(input.enhancedRecovery
+      ? [
+          {
+            heightRatio: 0.42,
+            note: 'Premium OCR recovery retried on an extra-tight ingredient crop.',
+            source: 'tight-crop' as const,
+            widthRatio: 0.7,
+            xRatio: 0.15,
+            yRatio: 0.24,
+          },
+        ]
+      : []),
   ];
 
   for (const spec of cropSpecs) {
@@ -773,6 +795,7 @@ async function buildCropVariants(input: IngredientLabelImageInput) {
 
 async function runRecognitionPass(
   variant: ImageVariant,
+  input: IngredientLabelImageInput,
   recognizeText: typeof import('@infinitered/react-native-mlkit-text-recognition')['recognizeText']
 ): Promise<RecognitionPassResult | null> {
   const recognizedText = await recognizeText(variant.uri);
@@ -783,7 +806,7 @@ async function runRecognitionPass(
   }
 
   const orderedLines = toOrderedLines(recognizedText.blocks || []);
-  const ingredientCandidate = parseIngredientSection(orderedLines, rawText);
+  const ingredientCandidate = parseIngredientSection(orderedLines, rawText, input);
 
   return {
     candidate: ingredientCandidate,
@@ -827,6 +850,7 @@ export async function recognizeIngredientLabelImage(
         uri: input.uri,
         width: input.width ?? null,
       },
+      input,
       recognizeText
     );
 
@@ -842,7 +866,7 @@ export async function recognizeIngredientLabelImage(
       const cropVariants = await buildCropVariants(input);
 
       for (const variant of cropVariants) {
-        const result = await runRecognitionPass(variant, recognizeText);
+        const result = await runRecognitionPass(variant, input, recognizeText);
 
         if (!result) {
           continue;

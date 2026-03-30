@@ -8,9 +8,11 @@ import PrimaryButton from '../components/PrimaryButton';
 import { useAppTheme } from '../components/AppThemeProvider';
 import ScreenLoadingView from '../components/ScreenLoadingView';
 import {
+  PREMIUM_BONUS_FEATURES,
   PREMIUM_FEATURE_COPY,
+  PREMIUM_FREE_PLAN_FEATURES,
   PREMIUM_MONTHLY_PRODUCT_ID,
-  PREMIUM_PAYWALL_FEATURES,
+  PREMIUM_PRIMARY_VALUE_FEATURES,
   PREMIUM_PRICE_PREVIEW_COPY,
 } from '../constants/premium';
 import type { PremiumEntitlement } from '../models/premium';
@@ -69,17 +71,17 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
 
   const handlePurchasePress = () => {
     Alert.alert(
-      entitlement.isPremium ? 'Premium is active' : 'Premium checkout comes next',
+      entitlement.isPremium ? 'Premium is active' : 'Premium billing opens in the Play build',
       entitlement.isPremium
         ? 'This account already has premium access from its synced entitlement.'
-        : `The plan architecture is ready. Connect ${PREMIUM_MONTHLY_PRODUCT_ID} to Google Play Billing next so premium can remove daily limits, rewarded ads, and basic-plan caps.`
+        : `${PREMIUM_MONTHLY_PRODUCT_ID} is the monthly plan for deeper guidance, weekly shopping insights, Shelf Mode extras, and ad-free ingredient scans.`
     );
   };
 
   const handleRestorePress = () => {
     Alert.alert(
-      'Restore purchases comes next',
-      'This screen is ready for Google Play restore flow. Once billing is connected, this button should re-check the active subscription.'
+      'Restore premium',
+      'This button will re-check the active monthly premium plan on this account once Google Play billing is live in the release build.'
     );
   };
 
@@ -89,11 +91,11 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
         <View style={styles.heroCard}>
           <Text style={styles.eyebrow}>Inqoura Premium</Text>
           <Text style={styles.title}>
-            {entitlement.isPremium ? 'Premium is active on this account' : 'Unlock premium tools'}
+            {entitlement.isPremium ? 'Premium is active on this account' : 'Scan with deeper guidance'}
           </Text>
           <Text style={styles.subtitle}>
             {highlightedFeature?.description ||
-              `Basic includes 5 OCR scans and 5 share-card exports per day. ${PREMIUM_PRICE_PREVIEW_COPY}`}
+              `Free helps you scan. Premium helps you understand what matters, what to swap, and what your habits are turning into over time. ${PREMIUM_PRICE_PREVIEW_COPY}`}
           </Text>
           <View
             style={[
@@ -117,11 +119,31 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
         </View>
 
         <View style={styles.featureCard}>
-          {PREMIUM_PAYWALL_FEATURES.map((item) => (
+          <Text style={styles.sectionTitle}>What free already includes</Text>
+          {PREMIUM_FREE_PLAN_FEATURES.map((item) => (
             <View key={item} style={styles.featureRow}>
               <View style={styles.featureDot} />
               <Text style={styles.featureText}>{item}</Text>
             </View>
+          ))}
+        </View>
+
+        <View style={styles.featureCard}>
+          <Text style={styles.sectionTitle}>What premium adds</Text>
+          {PREMIUM_PRIMARY_VALUE_FEATURES.map((item) => (
+            <View key={item} style={styles.featureRow}>
+              <View style={styles.featureDot} />
+              <Text style={styles.featureText}>{item}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.noteCard}>
+          <Text style={styles.noteTitle}>Also included</Text>
+          {PREMIUM_BONUS_FEATURES.map((item) => (
+            <Text key={item} style={styles.noteText}>
+              • {item}
+            </Text>
           ))}
         </View>
 
@@ -134,20 +156,18 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
         ) : null}
 
         <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>Plan status</Text>
+          <Text style={styles.noteTitle}>Who premium is for</Text>
           <Text style={styles.noteText}>
-            Basic access is live with daily quotas, while premium already unlocks unlimited OCR,
-            extra share styles, extra app looks, and history insights through the same synced
-            entitlement state.
+            Premium is meant for people who scan often and want clearer explanations, stronger OCR recovery, and weekly shopping feedback instead of just higher limits.
           </Text>
         </View>
 
         <PrimaryButton
-          label={entitlement.isPremium ? 'Premium Active' : 'Continue To Premium Checkout'}
+          label={entitlement.isPremium ? 'Premium Active' : 'See Monthly Premium'}
           onPress={handlePurchasePress}
         />
         {!entitlement.isPremium ? (
-          <PrimaryButton label="Restore Premium Access" onPress={handleRestorePress} />
+          <PrimaryButton label="Restore Existing Premium" onPress={handleRestorePress} />
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -196,6 +216,12 @@ const createStyles = (
       fontFamily: typography.bodyFontFamily,
       fontSize: 15,
       lineHeight: 22,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontFamily: typography.headingFontFamily,
+      fontSize: 18,
+      fontWeight: '800',
     },
     heroCard: {
       backgroundColor: colors.surface,

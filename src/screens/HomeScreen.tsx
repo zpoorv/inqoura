@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAppTheme } from '../components/AppThemeProvider';
 import DietProfileModal from '../components/DietProfileModal';
 import HistoryInsightsCard from '../components/HistoryInsightsCard';
+import HistoryNotificationsCard from '../components/HistoryNotificationsCard';
 import PrimaryButton from '../components/PrimaryButton';
 import {
   DEFAULT_DIET_PROFILE_ID,
@@ -21,17 +22,23 @@ import {
   syncDietProfileForCurrentUser,
 } from '../services/dietProfileStorage';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
+import { loadComparisonSession } from '../services/comparisonSessionStorage';
 import {
   loadFeatureQuotaSnapshot,
   type FeatureQuotaSnapshot,
 } from '../services/featureUsageStorage';
 import {
+  hasPremiumFeatureAccess,
   loadCurrentPremiumEntitlement,
 } from '../services/premiumEntitlementService';
 import { loadScanHistory } from '../services/scanHistoryStorage';
 import { loadUserProfile } from '../services/userProfileService';
 import { getPremiumSession, subscribeAuthSession, subscribePremiumSession } from '../store';
-import { buildHistoryInsights, type HistoryInsight } from '../utils/historyPersonalization';
+import {
+  buildHistoryOverview,
+  type HistoryInsight,
+  type HistoryNotification,
+} from '../utils/historyPersonalization';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -50,7 +57,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     title: string | null;
   } | null>(null);
   const [historyInsights, setHistoryInsights] = useState<HistoryInsight[]>([]);
-  const [historyInsightsEnabled, setHistoryInsightsEnabled] = useState(true);
+  const [historyNotifications, setHistoryNotifications] = useState<HistoryNotification[]>([]);
+  const [favoriteCount, setFavoriteCount] = useState(0);
+  const [comparisonSummary, setComparisonSummary] = useState<string | null>(null);
+  const [shelfItemCount, setShelfItemCount] = useState(0);
   const [isHistoryEnabled, setIsHistoryEnabled] = useState(true);
   const [isIngredientOcrEnabled, setIsIngredientOcrEnabled] = useState(true);
   const [isFirstLaunchProfileFlow, setIsFirstLaunchProfileFlow] = useState(false);
@@ -88,10 +98,11 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
     const refreshPremiumState = async () => {
       const entitlement = await loadCurrentPremiumEntitlement();
-      const [quotaSnapshot, profile, historyEntries] = await Promise.all([
+      const [quotaSnapshot, profile, historyEntries, comparisonSession] = await Promise.all([
         loadFeatureQuotaSnapshot('ingredient-ocr', entitlement),
         loadUserProfile(),
         loadScanHistory(),
+        loadComparisonSession(),
       ]);
 
       if (!isMounted) {
@@ -100,10 +111,27 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
       setPremiumEntitlement(entitlement);
       setOcrQuotaSnapshot(quotaSnapshot);
-      setHistoryInsightsEnabled(profile?.historyInsightsEnabled ?? true);
-      setHistoryInsights(
-        entitlement.isPremium && (profile?.historyInsightsEnabled ?? true)
-          ? buildHistoryInsights(historyEntries)
+      setFavoriteCount(profile?.favoriteProductCodes?.length ?? 0);
+      setShelfItemCount(comparisonSession.entries.length);
+      const comparisonEntries = comparisonSession.entries;
+      setComparisonSummary(
+        comparisonEntries.length >= 2
+          ? `${comparisonEntries[0].name} vs ${comparisonEntries[1].name}`
+          : null
+      );
+      const historyOverview = buildHistoryOverview(historyEntries, {
+        includePremiumPatterns:
+          entitlement.isPremium && (profile?.historyInsightsEnabled ?? true),
+      });
+      setHistoryInsights(historyOverview.insights);
+      setHistoryNotifications(
+        entitlement.isPremium &&
+          hasPremiumFeatureAccess('history-notifications', entitlement) &&
+          (profile?.historyNotificationsEnabled ?? false)
+          ? historyOverview.notifications.slice(
+              0,
+              profile?.historyNotificationCadence === 'smart' ? 1 : 2
+            )
           : []
       );
     };
@@ -253,8 +281,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
               <Text style={styles.premiumCardText}>
                 {premiumEntitlement.isPremium
-                  ? 'Unlimited OCR, extra share styles, and insights are on.'
-                  : 'Basic includes daily limits for OCR and sharing.'}
+                  ? 'Deeper guidance, smarter OCR help, and weekly shopping insights are on.'
+                  : 'Free covers the core scan. Premium adds deeper guidance and habit help.'}
               </Text>
               <Pressable
                 onPress={() => navigation.navigate('Premium')}
@@ -277,10 +305,44 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
             ) : null}
 
-            {premiumEntitlement.isPremium &&
-            historyInsightsEnabled &&
-            historyInsights.length > 0 ? (
+            {historyInsights.length > 0 ? (
               <HistoryInsightsCard colors={colors} insights={historyInsights} />
+            ) : null}
+
+            {historyNotifications.length > 0 ? (
+              <HistoryNotificationsCard notifications={historyNotifications} />
+            ) : null}
+
+            {premiumEntitlement.isPremium && (favoriteCount > 0 || comparisonSummary) ? (
+              <View style={styles.profileSummaryCard}>
+                <Text style={styles.profileSummaryLabel}>Saved products</Text>
+                <Text style={styles.profileSummaryTitle}>
+                  {favoriteCount > 0
+                    ? `${favoriteCount} favorite${favoriteCount === 1 ? '' : 's'} saved`
+                    : 'Comparison ready'}
+                </Text>
+                {comparisonSummary ? (
+                  <Text style={styles.profileSummaryText}>{comparisonSummary}</Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {shelfItemCount > 0 ? (
+              <View style={styles.profileSummaryCard}>
+                <Text style={styles.profileSummaryLabel}>Shelf Mode</Text>
+                <Text style={styles.profileSummaryTitle}>
+                  {shelfItemCount} product{shelfItemCount === 1 ? '' : 's'} ready to compare
+                </Text>
+                {comparisonSummary ? (
+                  <Text style={styles.profileSummaryText}>{comparisonSummary}</Text>
+                ) : null}
+                <Pressable
+                  onPress={() => navigation.navigate('ShelfMode')}
+                  style={styles.inlineAction}
+                >
+                  <Text style={styles.inlineActionText}>Open Shelf Mode</Text>
+                </Pressable>
+              </View>
             ) : null}
 
             <View style={styles.footerActions}>
@@ -290,6 +352,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   navigation.navigate('Scanner', { profileId: selectedProfileId })
                 }
               />
+              <Pressable
+                onPress={() => navigation.navigate('ShelfMode')}
+                style={styles.secondaryAction}
+              >
+                <Text style={styles.secondaryActionText}>Open Shelf Mode</Text>
+              </Pressable>
               {isIngredientOcrEnabled ? (
                 <Pressable
                   onPress={() =>
@@ -410,6 +478,20 @@ const createStyles = (
     color: colors.primary,
     fontFamily: typography.accentFontFamily,
     fontSize: 12,
+    fontWeight: '800',
+  },
+  inlineAction: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primaryMuted,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  inlineActionText: {
+    color: colors.primary,
+    fontFamily: typography.accentFontFamily,
+    fontSize: 13,
     fontWeight: '800',
   },
   profileSummaryCard: {

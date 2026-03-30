@@ -8,7 +8,10 @@ import type { AuthUser } from '../models/auth';
 import { isAppLookId, isAppearanceMode } from '../models/preferences';
 import { isShareCardStyleId } from '../models/shareCardStyle';
 import { getAuthSession } from '../store';
-import type { UserProfile } from '../models/userProfile';
+import type {
+  HistoryNotificationCadence,
+  UserProfile,
+} from '../models/userProfile';
 import { getFirebaseAuth } from './firebaseAuth';
 import { AuthServiceError } from './authHelpers';
 import {
@@ -24,11 +27,15 @@ function buildDefaultProfileFromAuthUser(authUser: AuthUser): UserProfile {
   return {
     appLookId: 'classic',
     appearanceMode: 'light',
+    comparisonProductCodes: [],
     countryCode: null,
     createdAt: authUser.createdAt || now,
     dietProfileId: DEFAULT_DIET_PROFILE_ID,
     email: authUser.email,
+    favoriteProductCodes: [],
     historyInsightsEnabled: true,
+    historyNotificationCadence: 'weekly',
+    historyNotificationsEnabled: false,
     name: authUser.displayName ?? '',
     plan: 'free',
     role: 'user',
@@ -107,6 +114,38 @@ function resolveShareCardStyleIdValue(
   return baseShareCardStyleId;
 }
 
+function resolveHistoryNotificationCadenceValue(
+  remoteCadence: string | null | undefined,
+  localCadence: string | null | undefined,
+  baseCadence: HistoryNotificationCadence
+): HistoryNotificationCadence {
+  if (remoteCadence === 'smart' || remoteCadence === 'weekly') {
+    return remoteCadence;
+  }
+
+  if (localCadence === 'smart' || localCadence === 'weekly') {
+    return localCadence;
+  }
+
+  return baseCadence;
+}
+
+function resolveStringArray(
+  remoteValue: unknown,
+  localValue: unknown,
+  fallback: string[]
+) {
+  if (Array.isArray(remoteValue)) {
+    return remoteValue.filter((item): item is string => typeof item === 'string');
+  }
+
+  if (Array.isArray(localValue)) {
+    return localValue.filter((item): item is string => typeof item === 'string');
+  }
+
+  return fallback;
+}
+
 async function resolveUserProfile(baseProfile: UserProfile) {
   const [localProfile, remoteProfile] = await Promise.all([
     loadStoredUserProfile(baseProfile.uid),
@@ -146,16 +185,35 @@ async function resolveUserProfile(baseProfile: UserProfile) {
         localDietProfileId,
         baseProfile.dietProfileId
       ),
+      favoriteProductCodes: resolveStringArray(
+        remoteProfile?.favoriteProductCodes,
+        localProfile?.favoriteProductCodes,
+        baseProfile.favoriteProductCodes
+      ),
       historyInsightsEnabled:
         remoteProfile?.historyInsightsEnabled ??
         localProfile?.historyInsightsEnabled ??
         baseProfile.historyInsightsEnabled,
+      historyNotificationCadence: resolveHistoryNotificationCadenceValue(
+        remoteProfile?.historyNotificationCadence,
+        localProfile?.historyNotificationCadence,
+        baseProfile.historyNotificationCadence
+      ),
+      historyNotificationsEnabled:
+        remoteProfile?.historyNotificationsEnabled ??
+        localProfile?.historyNotificationsEnabled ??
+        baseProfile.historyNotificationsEnabled,
       plan: remoteProfile?.plan ?? localProfile?.plan ?? baseProfile.plan,
       role: remoteProfile?.role ?? localProfile?.role ?? baseProfile.role,
       shareCardStyleId: resolveShareCardStyleIdValue(
         remoteShareCardStyleId,
         localShareCardStyleId,
         baseProfile.shareCardStyleId
+      ),
+      comparisonProductCodes: resolveStringArray(
+        remoteProfile?.comparisonProductCodes,
+        localProfile?.comparisonProductCodes,
+        baseProfile.comparisonProductCodes
       ),
       uid: baseProfile.uid,
       updatedAt: remoteProfile?.updatedAt ?? localProfile?.updatedAt ?? baseProfile.updatedAt,
@@ -214,8 +272,12 @@ async function saveUserProfilePatch(
       | 'appearanceMode'
       | 'countryCode'
       | 'dietProfileId'
+      | 'favoriteProductCodes'
       | 'historyInsightsEnabled'
+      | 'historyNotificationCadence'
+      | 'historyNotificationsEnabled'
       | 'name'
+      | 'comparisonProductCodes'
       | 'shareCardStyleId'
     >
   >
@@ -230,6 +292,16 @@ async function saveUserProfilePatch(
   const nextProfile: UserProfile = {
     ...currentProfile,
     ...patch,
+    comparisonProductCodes: Array.isArray(patch.comparisonProductCodes)
+      ? patch.comparisonProductCodes
+      : currentProfile.comparisonProductCodes,
+    favoriteProductCodes: Array.isArray(patch.favoriteProductCodes)
+      ? patch.favoriteProductCodes
+      : currentProfile.favoriteProductCodes,
+    historyNotificationCadence:
+      patch.historyNotificationCadence ?? currentProfile.historyNotificationCadence,
+    historyNotificationsEnabled:
+      patch.historyNotificationsEnabled ?? currentProfile.historyNotificationsEnabled,
     name:
       typeof patch.name === 'string' ? patch.name.trim() : currentProfile.name,
     updatedAt: new Date().toISOString(),
@@ -269,8 +341,12 @@ export async function saveCurrentUserPreferences(
       UserProfile,
       | 'appLookId'
       | 'appearanceMode'
+      | 'comparisonProductCodes'
       | 'dietProfileId'
+      | 'favoriteProductCodes'
       | 'historyInsightsEnabled'
+      | 'historyNotificationCadence'
+      | 'historyNotificationsEnabled'
       | 'shareCardStyleId'
     >
   >
@@ -278,8 +354,12 @@ export async function saveCurrentUserPreferences(
   return saveUserProfilePatch({
     appLookId: input.appLookId,
     appearanceMode: input.appearanceMode,
+    comparisonProductCodes: input.comparisonProductCodes,
     dietProfileId: input.dietProfileId,
+    favoriteProductCodes: input.favoriteProductCodes,
     historyInsightsEnabled: input.historyInsightsEnabled,
+    historyNotificationCadence: input.historyNotificationCadence,
+    historyNotificationsEnabled: input.historyNotificationsEnabled,
     shareCardStyleId: input.shareCardStyleId,
   });
 }

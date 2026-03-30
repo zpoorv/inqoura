@@ -33,6 +33,7 @@ export type ResolvedProduct = {
   additiveCount: number;
   additiveTags: string[];
   adminMetadata?: {
+    adminPriorityScore: number | null;
     customGradeLabel: HealthScoreGrade | null;
     customScore: number | null;
     customSummary: string | null;
@@ -41,6 +42,8 @@ export type ResolvedProduct = {
     hasManagedData: boolean;
     healthierAlternatives: ProductOverrideLink[];
     notes: string | null;
+    reviewBadgeCopy: string | null;
+    reviewStatus: 'draft' | 'improved' | 'reviewed' | null;
     sourceNote: string | null;
     updatedAt: string | null;
   } | null;

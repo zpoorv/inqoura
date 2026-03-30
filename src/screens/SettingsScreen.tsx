@@ -19,6 +19,7 @@ import {
 } from '../constants/dietProfiles';
 import { getShareCardStyleDefinition, SHARE_CARD_STYLE_DEFINITIONS } from '../constants/shareCardStyles';
 import type { AppLookId, AppearanceMode } from '../models/preferences';
+import type { HistoryNotificationCadence } from '../models/userProfile';
 import type { RootStackParamList } from '../navigation/types';
 import type { ShareCardStyleId } from '../models/shareCardStyle';
 import { deleteCurrentAccount } from '../services/accountDeletionService';
@@ -58,15 +59,23 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [isDietProfileVisible, setIsDietProfileVisible] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [isNotificationCadenceModalVisible, setIsNotificationCadenceModalVisible] =
+    useState(false);
   const [isShareCardStyleModalVisible, setIsShareCardStyleModalVisible] =
     useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileEmail, setProfileEmail] = useState('');
   const [roleLabel, setRoleLabel] = useState('User');
+  const [favoriteCount, setFavoriteCount] = useState(0);
   const [premiumEntitlement, setPremiumEntitlement] = useState(getPremiumSession());
   const [premiumLabel, setPremiumLabel] = useState(
     getPremiumSession().isPremium ? 'Premium' : 'Basic'
   );
+  const [historyNotificationCadence, setHistoryNotificationCadence] =
+    useState<HistoryNotificationCadence>('weekly');
+  const [draftHistoryNotificationCadence, setDraftHistoryNotificationCadence] =
+    useState<HistoryNotificationCadence>('weekly');
+  const [historyNotificationsEnabled, setHistoryNotificationsEnabled] = useState(false);
   const [shareCardStyleId, setShareCardStyleId] =
     useState<ShareCardStyleId>('classic');
   const shouldShowLoadingScreen = useDelayedVisibility(
@@ -88,6 +97,18 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     id: definition.id,
     label: definition.label,
   }));
+  const notificationCadenceOptions = [
+    {
+      description: 'Show the strongest scan nudge when something needs attention.',
+      id: 'smart' as const,
+      label: 'Smart',
+    },
+    {
+      description: 'Bundle your premium scan nudges into a simple weekly recap.',
+      id: 'weekly' as const,
+      label: 'Weekly',
+    },
+  ];
 
   useFocusEffect(
     useCallback(() => {
@@ -121,7 +142,17 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           setDraftDietProfileId(savedDietProfileId);
           setDraftAppLookId(profile?.appLookId ?? appLookId);
           setDraftShareCardStyleId(savedShareCardStyleId);
+          setFavoriteCount(profile?.favoriteProductCodes?.length ?? 0);
           setHistoryInsightsEnabled(profile?.historyInsightsEnabled ?? true);
+          setHistoryNotificationCadence(
+            profile?.historyNotificationCadence ?? 'weekly'
+          );
+          setDraftHistoryNotificationCadence(
+            profile?.historyNotificationCadence ?? 'weekly'
+          );
+          setHistoryNotificationsEnabled(
+            profile?.historyNotificationsEnabled ?? false
+          );
           setProfileEmail(profile?.email ?? '');
           setProfileName(profile?.name ?? '');
           setPremiumLabel(entitlement.isPremium ? 'Premium' : 'Basic');
@@ -261,6 +292,34 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
     await saveCurrentUserPreferences({ historyInsightsEnabled: nextValue });
   };
 
+  const handleToggleHistoryNotifications = async () => {
+    if (!premiumEntitlement.isPremium) {
+      navigation.navigate('Premium', { featureId: 'history-notifications' });
+      return;
+    }
+
+    const nextValue = !historyNotificationsEnabled;
+    setHistoryNotificationsEnabled(nextValue);
+    await saveCurrentUserPreferences({
+      historyNotificationsEnabled: nextValue,
+    });
+  };
+
+  const handleApplyNotificationCadence = () => {
+    setHistoryNotificationCadence(draftHistoryNotificationCadence);
+    setIsNotificationCadenceModalVisible(false);
+    void saveCurrentUserPreferences({
+      historyNotificationCadence: draftHistoryNotificationCadence,
+    }).catch((error) => {
+      Alert.alert(
+        'Notification pace update failed',
+        error instanceof AuthServiceError
+          ? error.message
+          : 'We could not save that notification pace right now.'
+      );
+    });
+  };
+
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -299,6 +358,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         <SettingsSection title="Preferences">
           <SettingsRow
             onPress={() => navigation.navigate('Premium')}
+            subtitle="Deeper guidance, smarter OCR help, and shopping habit tools."
             title="Premium"
             value={premiumLabel}
           />
@@ -344,8 +404,41 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
           />
           <SettingsRow
             onPress={() => void handleToggleHistoryInsights()}
+            subtitle="Richer weekly scan patterns and repeat-buy signals."
             title="History Insights"
             value={premiumEntitlement.isPremium ? (historyInsightsEnabled ? 'On' : 'Off') : 'Premium'}
+          />
+          <SettingsRow
+            onPress={() => void handleToggleHistoryNotifications()}
+            subtitle="Optional premium nudges based on your recent scans."
+            title="History Notifications"
+            value={
+              premiumEntitlement.isPremium
+                ? historyNotificationsEnabled
+                  ? 'On'
+                  : 'Off'
+                : 'Premium'
+            }
+          />
+          <SettingsRow
+            onPress={() => {
+              if (!premiumEntitlement.isPremium) {
+                navigation.navigate('Premium', { featureId: 'history-notifications' });
+                return;
+              }
+
+              setDraftHistoryNotificationCadence(historyNotificationCadence);
+              setIsNotificationCadenceModalVisible(true);
+            }}
+            subtitle="Choose whether premium nudges appear smart-first or weekly."
+            title="Notification Pace"
+            value={premiumEntitlement.isPremium ? historyNotificationCadence : 'Premium'}
+          />
+          <SettingsRow
+            onPress={() => navigation.navigate('History')}
+            subtitle="Premium can save favorites and keep two products ready to compare."
+            title="Saved Products"
+            value={favoriteCount > 0 ? `${favoriteCount} saved` : 'Open'}
           />
         </SettingsSection>
 
@@ -385,6 +478,16 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps) {
         selectedId={draftAppLookId}
         title="Choose app look"
         visible={isAppLookModalVisible}
+      />
+      <OptionPickerModal
+        colors={colors}
+        onApply={handleApplyNotificationCadence}
+        onRequestClose={() => setIsNotificationCadenceModalVisible(false)}
+        onSelect={setDraftHistoryNotificationCadence}
+        options={notificationCadenceOptions}
+        selectedId={draftHistoryNotificationCadence}
+        title="Choose notification pace"
+        visible={isNotificationCadenceModalVisible}
       />
       <OptionPickerModal
         colors={colors}

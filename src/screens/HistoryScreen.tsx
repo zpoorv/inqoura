@@ -15,6 +15,7 @@ import { useAppTheme } from '../components/AppThemeProvider';
 import HistoryInsightsCard from '../components/HistoryInsightsCard';
 import HistoryListItemSkeleton from '../components/HistoryListItemSkeleton';
 import HistoryListItem from '../components/HistoryListItem';
+import UsualBuysCard from '../components/UsualBuysCard';
 import type { RootStackParamList } from '../navigation/types';
 import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
 import {
@@ -24,7 +25,13 @@ import {
 } from '../services/scanHistoryStorage';
 import { loadUserProfile } from '../services/userProfileService';
 import { getDietProfileDefinition } from '../utils/dietProfiles';
-import { buildHistoryInsights, type HistoryInsight } from '../utils/historyPersonalization';
+import {
+  buildHistoryOverview,
+  type HistoryInsight,
+  type HistoryReplacementCandidate,
+  type HistoryRepeatBuyCandidate,
+  type HistoryTrend,
+} from '../utils/historyPersonalization';
 
 type HistoryScreenProps = NativeStackScreenProps<RootStackParamList, 'History'>;
 type SortOrder = 'newest' | 'oldest';
@@ -54,7 +61,15 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
   const [historyEntries, setHistoryEntries] = useState<ScanHistoryEntry[]>([]);
   const [historyInsights, setHistoryInsights] = useState<HistoryInsight[]>([]);
+  const [historyTrend, setHistoryTrend] = useState<HistoryTrend>('steady');
   const [isLoading, setIsLoading] = useState(true);
+  const [favoriteProductCodes, setFavoriteProductCodes] = useState<string[]>([]);
+  const [replacementCandidates, setReplacementCandidates] = useState<
+    HistoryReplacementCandidate[]
+  >([]);
+  const [repeatBuyCandidates, setRepeatBuyCandidates] = useState<
+    HistoryRepeatBuyCandidate[]
+  >([]);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
@@ -80,12 +95,15 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 
         if (isMounted) {
           setHistoryEntries(nextEntries);
-          setHistoryInsights(
-            buildHistoryInsights(nextEntries, {
-              includePremiumPatterns:
-                entitlement.isPremium && (profile?.historyInsightsEnabled ?? true),
-            })
-          );
+          setFavoriteProductCodes(profile?.favoriteProductCodes ?? []);
+          const overview = buildHistoryOverview(nextEntries, {
+            includePremiumPatterns:
+              entitlement.isPremium && (profile?.historyInsightsEnabled ?? true),
+          });
+          setHistoryInsights(overview.insights);
+          setHistoryTrend(overview.weeklyTrend);
+          setRepeatBuyCandidates(overview.repeatBuyCandidates);
+          setReplacementCandidates(overview.replacementCandidates);
         }
       } finally {
         if (isMounted) {
@@ -167,6 +185,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
     ({ item }: { item: ScanHistoryEntry }) => (
       <HistoryListItem
         entry={item}
+        isFavorite={favoriteProductCodes.includes(item.product.code || item.barcode)}
         isSelected={selectedEntryIdSet.has(item.id)}
         onDelete={() => void handleDeleteEntries([item.id])}
         onLongPress={() => toggleEntrySelection(item.id)}
@@ -176,6 +195,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
     ),
     [
       handleDeleteEntries,
+      favoriteProductCodes,
       handleOpenEntry,
       selectedEntryIdSet,
       selectionMode,
@@ -193,6 +213,13 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           <Text style={styles.title}>Review products you scanned earlier</Text>
           <Text style={styles.subtitle}>
             Search, sort, and quickly spot your best picks, repeat buys, and items to rethink.
+          </Text>
+          <Text style={styles.headerMeta}>
+            {historyTrend === 'improving'
+              ? 'This week is trending stronger than usual.'
+              : historyTrend === 'watch'
+                ? 'This week leans more caution-heavy.'
+                : 'This week looks fairly steady so far.'}
           </Text>
         </View>
 
@@ -270,6 +297,28 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           </View>
         ) : null}
 
+        {repeatBuyCandidates.length > 0 ? (
+          <View style={styles.insightsWrap}>
+            <UsualBuysCard
+              entries={historyEntries.filter((entry) =>
+                repeatBuyCandidates.some((candidate) => candidate.id === entry.id)
+              )}
+              onOpenEntry={handleOpenEntry}
+            />
+          </View>
+        ) : null}
+
+        {replacementCandidates.length > 0 ? (
+          <View style={styles.stateCard}>
+            <Text style={styles.stateTitle}>Replace first</Text>
+            {replacementCandidates.map((candidate) => (
+              <Text key={candidate.id} style={styles.stateText}>
+                • {candidate.name}: {candidate.reason}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
         {isLoading ? (
           <FlatList
             contentContainerStyle={styles.listContent}
@@ -343,6 +392,13 @@ const createStyles = (
   },
   header: {
     gap: 10,
+  },
+  headerMeta: {
+    color: colors.primary,
+    fontFamily: typography.bodyFontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
   },
   insightsWrap: {
     marginTop: -2,

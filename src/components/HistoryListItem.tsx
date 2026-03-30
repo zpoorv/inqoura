@@ -9,6 +9,7 @@ import { formatProductName } from '../utils/productDisplay';
 
 type HistoryListItemProps = {
   entry: ScanHistoryEntry;
+  isFavorite?: boolean;
   isSelected?: boolean;
   onDelete: () => void;
   onLongPress?: () => void;
@@ -29,6 +30,7 @@ function formatTimestamp(value: string) {
 
 function HistoryListItem({
   entry,
+  isFavorite = false,
   isSelected = false,
   onDelete,
   onLongPress,
@@ -70,6 +72,7 @@ function HistoryListItem({
 
       <Text style={styles.metaText}>
         {entry.barcode} • {profile.label}
+        {isFavorite ? ' • Favorite' : ''}
       </Text>
       <Text style={styles.summaryText}>{entry.riskSummary}</Text>
 

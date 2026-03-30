@@ -9,6 +9,7 @@ export type ProductOverrideLink = {
 
 export type ProductOverrideRecord = {
   adminGradeLabel?: HealthScoreGrade | null;
+  adminPriorityScore?: number | null;
   adminScore?: number | null;
   adminSummary?: string | null;
   adminVerdict?: string | null;
@@ -24,6 +25,8 @@ export type ProductOverrideRecord = {
   name?: string | null;
   nameReason?: string | null;
   notes?: string | null;
+  reviewBadgeCopy?: string | null;
+  reviewStatus?: 'draft' | 'improved' | 'reviewed' | null;
   sourceNote?: string | null;
   healthierAlternatives?: ProductOverrideLink[] | null;
   nutrition?: Partial<ResolvedNutrition> | null;

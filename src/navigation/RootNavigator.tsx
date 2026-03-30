@@ -29,6 +29,7 @@ const loadSettingsScreen = () => import('../screens/SettingsScreen');
 const loadPremiumScreen = () => import('../screens/PremiumScreen');
 const loadProfileDetailsScreen = () => import('../screens/ProfileDetailsScreen');
 const loadHistoryScreen = () => import('../screens/HistoryScreen');
+const loadShelfModeScreen = () => import('../screens/ShelfModeScreen');
 const loadIngredientOcrScreen = () => import('../screens/IngredientOcrScreen');
 const loadHelpScreen = () => import('../screens/HelpScreen');
 const loadPrivacyPolicyScreen = () => import('../screens/PrivacyPolicyScreen');
@@ -39,6 +40,7 @@ const SettingsScreen = lazy(loadSettingsScreen);
 const PremiumScreen = lazy(loadPremiumScreen);
 const ProfileDetailsScreen = lazy(loadProfileDetailsScreen);
 const HistoryScreen = lazy(loadHistoryScreen);
+const ShelfModeScreen = lazy(loadShelfModeScreen);
 const IngredientOcrScreen = lazy(loadIngredientOcrScreen);
 const HelpScreen = lazy(loadHelpScreen);
 const PrivacyPolicyScreen = lazy(loadPrivacyPolicyScreen);
@@ -50,6 +52,7 @@ const AUTHENTICATED_SCREEN_LOADERS = [
   loadPremiumScreen,
   loadProfileDetailsScreen,
   loadHistoryScreen,
+  loadShelfModeScreen,
   loadIngredientOcrScreen,
   loadHelpScreen,
   loadPrivacyPolicyScreen,
@@ -202,6 +205,11 @@ export default function RootNavigator() {
                 name="History"
                 component={HistoryScreen}
                 options={{ title: 'Scan History' }}
+              />
+              <Stack.Screen
+                name="ShelfMode"
+                component={ShelfModeScreen}
+                options={{ title: 'Shelf Mode' }}
               />
               <Stack.Screen
                 name="Scanner"

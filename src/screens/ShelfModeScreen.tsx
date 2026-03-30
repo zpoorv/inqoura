@@ -1,0 +1,340 @@
+import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useAppTheme } from '../components/AppThemeProvider';
+import PrimaryButton from '../components/PrimaryButton';
+import type { ComparisonSessionEntry } from '../models/comparisonSession';
+import type { PremiumEntitlement } from '../models/premium';
+import type { RootStackParamList } from '../navigation/types';
+import {
+  clearComparisonSession,
+  loadComparisonSession,
+  removeComparisonSessionEntry,
+} from '../services/comparisonSessionStorage';
+import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
+import { buildShelfComparisonSummary } from '../utils/shelfComparison';
+
+type ShelfModeScreenProps = NativeStackScreenProps<RootStackParamList, 'ShelfMode'>;
+
+function formatVerdict(value: string) {
+  switch (value) {
+    case 'good-regular-pick':
+      return 'Good regular pick';
+    case 'okay-occasionally':
+      return 'Okay occasionally';
+    case 'not-ideal-often':
+      return 'Not ideal often';
+    default:
+      return 'Need better data';
+  }
+}
+
+export default function ShelfModeScreen({ navigation }: ShelfModeScreenProps) {
+  const { colors, typography } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
+  const [entries, setEntries] = useState<ComparisonSessionEntry[]>([]);
+  const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement | null>(
+    null
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+
+      const restoreSession = async () => {
+        const [session, entitlement] = await Promise.all([
+          loadComparisonSession(),
+          loadCurrentPremiumEntitlement(),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setEntries(session.entries);
+        setPremiumEntitlement(entitlement);
+      };
+
+      void restoreSession();
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
+
+  const summary = useMemo(() => buildShelfComparisonSummary(entries), [entries]);
+
+  const handleRemoveEntry = async (barcode: string) => {
+    const nextSession = await removeComparisonSessionEntry(barcode);
+    setEntries(nextSession.entries);
+  };
+
+  const handleClear = async () => {
+    const nextSession = await clearComparisonSession();
+    setEntries(nextSession.entries);
+  };
+
+  return (
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <Text style={styles.eyebrow}>Shelf Mode</Text>
+          <Text style={styles.title}>Compare what is in your hand right now</Text>
+          <Text style={styles.body}>
+            Scan a few similar products and keep the cleaner regular-use pick in view.
+          </Text>
+          <Text style={styles.highlight}>{summary.whyThisWins}</Text>
+        </View>
+
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Compared now</Text>
+            <Text style={styles.summaryValue}>{entries.length}</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryLabel}>Best regular-use pick</Text>
+            <Text style={styles.summaryValue}>
+              {summary.rows.find((row) => row.barcode === summary.bestForRegularUseBarcode)?.name ??
+                'Scan more'}
+            </Text>
+          </View>
+        </View>
+
+        {summary.rows.length > 0 ? (
+          <View style={styles.tableCard}>
+            <Text style={styles.sectionTitle}>Shelf comparison</Text>
+            {summary.rows.map((row) => (
+              <View key={row.barcode} style={styles.rowCard}>
+                <View style={styles.rowHeader}>
+                  <View style={styles.rowTextBlock}>
+                    <Text style={styles.rowTitle}>{row.name}</Text>
+                    <Text style={styles.rowMeta}>
+                      {formatVerdict(row.decisionVerdict)} • {row.confidence}
+                    </Text>
+                  </View>
+                  {typeof row.score === 'number' ? (
+                    <Text style={styles.scorePill}>{Math.round(row.score)}</Text>
+                  ) : null}
+                </View>
+                <Text style={styles.rowBody}>{row.decisionSummary}</Text>
+                {row.topConcern ? (
+                  <Text style={styles.concernText}>Main issue: {row.topConcern}</Text>
+                ) : null}
+                <View style={styles.rowActions}>
+                  <Pressable
+                    onPress={() =>
+                      navigation.push('Result', {
+                        barcode: row.barcode,
+                        persistToHistory: false,
+                        profileId: entries.find((entry) => entry.barcode === row.barcode)?.profileId,
+                        product: entries.find((entry) => entry.barcode === row.barcode)?.product!,
+                      })
+                    }
+                    style={styles.actionChip}
+                  >
+                    <Text style={styles.actionChipText}>Open</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void handleRemoveEntry(row.barcode)}
+                    style={styles.actionChip}
+                  >
+                    <Text style={styles.actionChipText}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.sectionTitle}>Nothing in the tray yet</Text>
+            <Text style={styles.body}>
+              Open the scanner, scan two or more products from the same shelf, and they will appear here automatically.
+            </Text>
+          </View>
+        )}
+
+        {premiumEntitlement?.isPremium ? (
+          <View style={styles.premiumCard}>
+            <Text style={styles.sectionTitle}>Premium compare edge</Text>
+            <Text style={styles.body}>
+              Premium keeps favorites ready, preserves comparison slots, and adds deeper swap guidance on each product result.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.premiumCard}>
+            <Text style={styles.sectionTitle}>Want a stronger compare workflow?</Text>
+            <Text style={styles.body}>
+              Premium saves favorites, keeps comparison slots ready, and adds deeper “why this wins” guidance.
+            </Text>
+            <PrimaryButton
+              label="See Premium"
+              onPress={() => navigation.navigate('Premium', { featureId: 'favorites-and-comparisons' })}
+            />
+          </View>
+        )}
+
+        {entries.length > 0 ? (
+          <PrimaryButton label="Clear Shelf Tray" onPress={() => void handleClear()} />
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const createStyles = (
+  colors: ReturnType<typeof useAppTheme>['colors'],
+  typography: ReturnType<typeof useAppTheme>['typography']
+) =>
+  StyleSheet.create({
+    actionChip: {
+      backgroundColor: colors.primaryMuted,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+    },
+    actionChipText: {
+      color: colors.primary,
+      fontFamily: typography.bodyFontFamily,
+      fontWeight: '700',
+    },
+    body: {
+      color: colors.textMuted,
+      fontFamily: typography.bodyFontFamily,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    concernText: {
+      color: colors.warning,
+      fontFamily: typography.bodyFontFamily,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    content: { gap: 18, padding: 24 },
+    emptyCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 24,
+      borderWidth: 1,
+      gap: 10,
+      padding: 20,
+    },
+    eyebrow: {
+      color: colors.primary,
+      fontFamily: typography.accentFontFamily,
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.3,
+      textTransform: 'uppercase',
+    },
+    heroCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 28,
+      borderWidth: 1,
+      gap: 10,
+      padding: 22,
+    },
+    highlight: {
+      color: colors.text,
+      fontFamily: typography.bodyFontFamily,
+      fontSize: 15,
+      fontWeight: '700',
+      lineHeight: 22,
+    },
+    premiumCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 24,
+      borderWidth: 1,
+      gap: 12,
+      padding: 20,
+    },
+    rowActions: { flexDirection: 'row', gap: 10 },
+    rowBody: {
+      color: colors.textMuted,
+      fontFamily: typography.bodyFontFamily,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    rowCard: {
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      gap: 10,
+      padding: 16,
+    },
+    rowHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+    rowMeta: {
+      color: colors.textMuted,
+      fontFamily: typography.bodyFontFamily,
+      fontSize: 13,
+    },
+    rowTextBlock: { flex: 1, gap: 4 },
+    rowTitle: {
+      color: colors.text,
+      fontFamily: typography.headingFontFamily,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    safeArea: { backgroundColor: colors.background, flex: 1 },
+    scorePill: {
+      backgroundColor: colors.primaryMuted,
+      borderRadius: 999,
+      color: colors.primary,
+      fontFamily: typography.numericFontFamily,
+      fontSize: 16,
+      fontWeight: '800',
+      overflow: 'hidden',
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontFamily: typography.headingFontFamily,
+      fontSize: 20,
+      fontWeight: '800',
+    },
+    summaryCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 20,
+      borderWidth: 1,
+      flex: 1,
+      gap: 6,
+      padding: 18,
+    },
+    summaryGrid: { flexDirection: 'row', gap: 14 },
+    summaryLabel: {
+      color: colors.textMuted,
+      fontFamily: typography.bodyFontFamily,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
+    summaryValue: {
+      color: colors.text,
+      fontFamily: typography.headingFontFamily,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    tableCard: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderRadius: 24,
+      borderWidth: 1,
+      gap: 12,
+      padding: 20,
+    },
+    title: {
+      color: colors.text,
+      fontFamily: typography.headingFontFamily,
+      fontSize: 28,
+      fontWeight: '800',
+      lineHeight: 34,
+    },
+  });

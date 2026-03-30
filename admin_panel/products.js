@@ -20,6 +20,7 @@ let currentBarcode = '';
 
 const productFieldIds = {
   additiveTags: 'productAdditives',
+  adminPriorityScore: 'productAdminPriorityScore',
   adminGradeLabel: 'productAdminGradeLabel',
   adminScore: 'productAdminScore',
   adminSummary: 'productAdminSummary',
@@ -38,6 +39,8 @@ const productFieldIds = {
   notes: 'productNotes',
   protein100g: 'protein100g',
   quantity: 'productQuantity',
+  reviewBadgeCopy: 'productReviewBadgeCopy',
+  reviewStatus: 'productReviewStatus',
   salt100g: 'salt100g',
   saturatedFat100g: 'saturatedFat100g',
   sourceNote: 'productSourceNote',
@@ -64,6 +67,8 @@ function setPreview(draft) {
   imageHost.className = 'image-preview';
   imageHost.innerHTML = `<img alt="Product preview" src="${imageUrl}" />`;
 }
+
+const initialBarcode = new URLSearchParams(window.location.search).get('barcode') || '';
 
 function fillProductForm(draft) {
   Object.entries(productFieldIds).forEach(([field, id]) => {
@@ -161,3 +166,8 @@ byId('deleteProductButton').addEventListener('click', async () => {
 });
 
 fillProductForm(buildEmptyProductDraft(''));
+
+if (initialBarcode) {
+  byId('barcodeInput').value = initialBarcode;
+  void handleLoadProduct();
+}
