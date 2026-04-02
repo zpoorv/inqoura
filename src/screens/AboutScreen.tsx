@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 
 import { useAppTheme } from '../components/AppThemeProvider';
+import TrustPromiseCard from '../components/TrustPromiseCard';
 import { APP_NAME } from '../constants/branding';
 
 export default function AboutScreen() {
@@ -17,10 +18,14 @@ export default function AboutScreen() {
         <Text style={styles.title}>{APP_NAME}</Text>
         <View style={styles.card}>
           <Text style={styles.body}>
-            Scan products, check ingredients, and save results.
+            Scan products, check ingredients, and get trust-backed grocery guidance.
+          </Text>
+          <Text style={styles.body}>
+            Inqoura is built so scores stay independent. Premium adds deeper explanations and habit help, not better grades.
           </Text>
           <Text style={styles.meta}>Version: {Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </View>
+        <TrustPromiseCard compact />
       </ScrollView>
     </SafeAreaView>
   );

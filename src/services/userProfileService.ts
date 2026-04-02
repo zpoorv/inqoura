@@ -4,8 +4,11 @@ import {
   DEFAULT_DIET_PROFILE_ID,
   isDietProfileId,
 } from '../constants/dietProfiles';
+import { isRestrictionId } from '../constants/restrictions';
 import type { AuthUser } from '../models/auth';
+import type { HouseholdProfile } from '../models/householdProfile';
 import { isAppLookId, isAppearanceMode } from '../models/preferences';
+import type { RestrictionSeverity } from '../models/restrictions';
 import { isShareCardStyleId } from '../models/shareCardStyle';
 import { getAuthSession } from '../store';
 import type {
@@ -25,6 +28,7 @@ function buildDefaultProfileFromAuthUser(authUser: AuthUser): UserProfile {
   const now = new Date().toISOString();
 
   return {
+    activeHouseholdProfileId: null,
     appLookId: 'classic',
     appearanceMode: 'light',
     comparisonProductCodes: [],
@@ -36,8 +40,11 @@ function buildDefaultProfileFromAuthUser(authUser: AuthUser): UserProfile {
     historyInsightsEnabled: true,
     historyNotificationCadence: 'weekly',
     historyNotificationsEnabled: false,
+    householdProfiles: [],
     name: authUser.displayName ?? '',
     plan: 'free',
+    restrictionIds: [],
+    restrictionSeverity: 'strict',
     role: 'user',
     shareCardStyleId: 'classic',
     uid: authUser.id,
@@ -130,6 +137,22 @@ function resolveHistoryNotificationCadenceValue(
   return baseCadence;
 }
 
+function resolveRestrictionSeverityValue(
+  remoteSeverity: string | null | undefined,
+  localSeverity: string | null | undefined,
+  fallback: RestrictionSeverity
+) {
+  if (remoteSeverity === 'caution' || remoteSeverity === 'strict') {
+    return remoteSeverity;
+  }
+
+  if (localSeverity === 'caution' || localSeverity === 'strict') {
+    return localSeverity;
+  }
+
+  return fallback;
+}
+
 function resolveStringArray(
   remoteValue: unknown,
   localValue: unknown,
@@ -146,6 +169,55 @@ function resolveStringArray(
   return fallback;
 }
 
+function resolveHouseholdProfiles(
+  remoteValue: unknown,
+  localValue: unknown
+) {
+  const sourceValue = Array.isArray(remoteValue)
+    ? remoteValue
+    : Array.isArray(localValue)
+      ? localValue
+      : [];
+
+  return sourceValue
+    .map((value) => {
+      if (!value || typeof value !== 'object') {
+        return null;
+      }
+
+      const candidate = value as Partial<HouseholdProfile>;
+
+      if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') {
+        return null;
+      }
+
+      const rawDietProfileId = candidate.dietProfileId;
+      const dietProfileId =
+        typeof rawDietProfileId === 'string' && isDietProfileId(rawDietProfileId)
+          ? rawDietProfileId
+          : DEFAULT_DIET_PROFILE_ID;
+
+      return {
+        dietProfileId,
+        id: candidate.id,
+        name: candidate.name.trim(),
+        restrictionIds: Array.isArray(candidate.restrictionIds)
+          ? candidate.restrictionIds.filter(isRestrictionId)
+          : [],
+        restrictionSeverity: resolveRestrictionSeverityValue(
+          candidate.restrictionSeverity,
+          candidate.restrictionSeverity,
+          'strict'
+        ),
+      } satisfies HouseholdProfile;
+    })
+    .filter(
+      (profile): profile is HouseholdProfile =>
+        profile !== null && Boolean(profile.name.trim())
+    )
+    .slice(0, 4);
+}
+
 async function resolveUserProfile(baseProfile: UserProfile) {
   const [localProfile, remoteProfile] = await Promise.all([
     loadStoredUserProfile(baseProfile.uid),
@@ -159,6 +231,16 @@ async function resolveUserProfile(baseProfile: UserProfile) {
   const localDietProfileId = localProfile?.dietProfileId;
   const remoteShareCardStyleId = remoteProfile?.shareCardStyleId;
   const localShareCardStyleId = localProfile?.shareCardStyleId;
+  const householdProfiles = resolveHouseholdProfiles(
+    remoteProfile?.householdProfiles,
+    localProfile?.householdProfiles
+  );
+  const activeHouseholdProfileId =
+    typeof remoteProfile?.activeHouseholdProfileId === 'string'
+      ? remoteProfile.activeHouseholdProfileId
+      : typeof localProfile?.activeHouseholdProfileId === 'string'
+        ? localProfile.activeHouseholdProfileId
+        : null;
 
   return {
     profile: {
@@ -203,7 +285,23 @@ async function resolveUserProfile(baseProfile: UserProfile) {
         remoteProfile?.historyNotificationsEnabled ??
         localProfile?.historyNotificationsEnabled ??
         baseProfile.historyNotificationsEnabled,
+      householdProfiles,
+      activeHouseholdProfileId:
+        activeHouseholdProfileId &&
+        householdProfiles.some((profile) => profile.id === activeHouseholdProfileId)
+          ? activeHouseholdProfileId
+          : null,
       plan: remoteProfile?.plan ?? localProfile?.plan ?? baseProfile.plan,
+      restrictionIds: resolveStringArray(
+        remoteProfile?.restrictionIds,
+        localProfile?.restrictionIds,
+        baseProfile.restrictionIds
+      ).filter(isRestrictionId),
+      restrictionSeverity: resolveRestrictionSeverityValue(
+        remoteProfile?.restrictionSeverity,
+        localProfile?.restrictionSeverity,
+        baseProfile.restrictionSeverity
+      ),
       role: remoteProfile?.role ?? localProfile?.role ?? baseProfile.role,
       shareCardStyleId: resolveShareCardStyleIdValue(
         remoteShareCardStyleId,
@@ -276,9 +374,13 @@ async function saveUserProfilePatch(
       | 'historyInsightsEnabled'
       | 'historyNotificationCadence'
       | 'historyNotificationsEnabled'
+      | 'householdProfiles'
       | 'name'
       | 'comparisonProductCodes'
+      | 'restrictionIds'
+      | 'restrictionSeverity'
       | 'shareCardStyleId'
+      | 'activeHouseholdProfileId'
     >
   >
 ) {
@@ -298,14 +400,35 @@ async function saveUserProfilePatch(
     favoriteProductCodes: Array.isArray(patch.favoriteProductCodes)
       ? patch.favoriteProductCodes
       : currentProfile.favoriteProductCodes,
+    householdProfiles: Array.isArray(patch.householdProfiles)
+      ? resolveHouseholdProfiles(patch.householdProfiles, [])
+      : currentProfile.householdProfiles,
     historyNotificationCadence:
       patch.historyNotificationCadence ?? currentProfile.historyNotificationCadence,
     historyNotificationsEnabled:
       patch.historyNotificationsEnabled ?? currentProfile.historyNotificationsEnabled,
+    activeHouseholdProfileId:
+      typeof patch.activeHouseholdProfileId === 'string' || patch.activeHouseholdProfileId === null
+        ? patch.activeHouseholdProfileId
+        : currentProfile.activeHouseholdProfileId,
+    restrictionIds: Array.isArray(patch.restrictionIds)
+      ? patch.restrictionIds.filter(isRestrictionId)
+      : currentProfile.restrictionIds,
+    restrictionSeverity:
+      patch.restrictionSeverity ?? currentProfile.restrictionSeverity,
     name:
       typeof patch.name === 'string' ? patch.name.trim() : currentProfile.name,
     updatedAt: new Date().toISOString(),
   };
+
+  if (
+    nextProfile.activeHouseholdProfileId &&
+    !nextProfile.householdProfiles.some(
+      (profile) => profile.id === nextProfile.activeHouseholdProfileId
+    )
+  ) {
+    nextProfile.activeHouseholdProfileId = null;
+  }
 
   if (!nextProfile.name.trim()) {
     throw new AuthServiceError('Enter your name.');
@@ -347,6 +470,10 @@ export async function saveCurrentUserPreferences(
       | 'historyInsightsEnabled'
       | 'historyNotificationCadence'
       | 'historyNotificationsEnabled'
+      | 'householdProfiles'
+      | 'activeHouseholdProfileId'
+      | 'restrictionIds'
+      | 'restrictionSeverity'
       | 'shareCardStyleId'
     >
   >
@@ -360,6 +487,10 @@ export async function saveCurrentUserPreferences(
     historyInsightsEnabled: input.historyInsightsEnabled,
     historyNotificationCadence: input.historyNotificationCadence,
     historyNotificationsEnabled: input.historyNotificationsEnabled,
+    householdProfiles: input.householdProfiles,
+    activeHouseholdProfileId: input.activeHouseholdProfileId,
+    restrictionIds: input.restrictionIds,
+    restrictionSeverity: input.restrictionSeverity,
     shareCardStyleId: input.shareCardStyleId,
   });
 }

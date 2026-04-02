@@ -65,6 +65,8 @@ export function buildResolvedProductFromOcr({
       parseCompleteness,
       rejectedNoiseCount,
     },
+    origins: [],
+    packagingDetails: [],
     quantity: null,
     sources: [
       {

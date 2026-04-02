@@ -42,7 +42,7 @@ export type ResultTrustSnapshot = {
   ingredientCompleteness: 'full' | 'partial' | 'missing';
   nutritionCompleteness: 'complete' | 'partial' | 'missing';
   ocrQuality: 'strong' | 'partial' | 'weak' | 'not-applicable';
-  sourceCertainty: 'reviewed' | 'catalog' | 'ocr-only';
+  sourceCertainty: 'reviewed' | 'catalog' | 'ocr-only' | 'saved-offline';
   updatedFreshness: 'fresh' | 'aging' | 'unknown';
 };
 
@@ -229,6 +229,10 @@ function getSourceCertainty(
     return 'reviewed';
   }
 
+  if (product.sources.some((source) => source.id === 'offline_cache')) {
+    return 'saved-offline';
+  }
+
   if (product.sources.some((source) => source.id === 'open_food_facts')) {
     return 'catalog';
   }
@@ -364,16 +368,21 @@ function getConfidenceAssessment(
     return {
       confidence: 'medium',
       confidenceReason:
-        'Partial details are available, so this is useful but not fully complete.',
+        usedSourceId === 'offline_cache'
+          ? 'This uses details saved from an earlier scan, so it is useful but worth rechecking.'
+          : 'Partial details are available, so this is useful but not fully complete.',
       isScoreSuppressed: false,
     };
   }
 
   return {
     confidence: 'low',
-    confidenceReason: ocrDiagnostics
-      ? 'Needs review because the ingredient photo looked partial or noisy.'
-      : 'Needs review because this product record is missing too many details.',
+    confidenceReason:
+      usedSourceId === 'offline_cache'
+        ? 'Needs review because this came from saved offline details instead of a fresh lookup.'
+        : ocrDiagnostics
+          ? 'Needs review because the ingredient photo looked partial or noisy.'
+          : 'Needs review because this product record is missing too many details.',
     isScoreSuppressed: false,
   };
 }

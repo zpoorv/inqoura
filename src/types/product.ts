@@ -10,7 +10,7 @@ export type OcrParseDiagnostics = {
 };
 
 export type ProductSourceInfo = {
-  id: 'open_food_facts' | 'ingredient_ocr' | 'product_override';
+  id: 'open_food_facts' | 'ingredient_ocr' | 'product_override' | 'offline_cache';
   label: string;
   note: string;
   status: ProductSourceStatus;
@@ -64,6 +64,8 @@ export type ResolvedProduct = {
   nutritionImageUrl: string | null;
   nutriScore: string | null;
   ocrDiagnostics?: OcrParseDiagnostics | null;
+  origins: string[];
+  packagingDetails: string[];
   quantity: string | null;
   sources: ProductSourceInfo[];
 };
@@ -108,7 +110,12 @@ export type OpenFoodFactsProduct = {
   nutriscore_grade?: string;
   nutriments?: OpenFoodFactsNutriments;
   nutrition_grades?: string;
+  origins?: string;
+  origins_tags?: string[];
+  packaging?: string;
+  packaging_tags?: string[];
   product_name?: string;
   product_name_en?: string;
   quantity?: string;
+  unique_scans_n?: number;
 };

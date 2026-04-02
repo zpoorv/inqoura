@@ -17,6 +17,10 @@ import {
 } from '../constants/revenueCat';
 import type { UserProfile } from '../models/userProfile';
 import { getAuthSession } from '../store';
+import {
+  DEFAULT_NETWORK_ERROR_MESSAGE,
+  isLikelyNetworkError,
+} from '../utils/networkErrors';
 import { saveRemoteUserProfile } from './cloudUserDataService';
 import { loadUserProfile } from './userProfileService';
 import { saveStoredUserProfile } from './userProfileStorage';
@@ -71,6 +75,51 @@ function matchesConfiguredPackage(
 
 function formatPackagePrice(candidatePackage: PurchasesPackage) {
   return candidatePackage.product.priceString;
+}
+
+function extractRevenueCatErrorDetails(error: unknown) {
+  const candidate = error as Partial<PurchasesError> | null;
+  const readableErrorCode =
+    candidate?.readableErrorCode ?? candidate?.userInfo?.readableErrorCode ?? null;
+
+  if (error instanceof Error) {
+    return {
+      code: null,
+      message: error.message,
+      readableErrorCode,
+    };
+  }
+
+  return {
+    code: candidate?.code ?? null,
+    message: candidate?.message ?? null,
+    readableErrorCode,
+  };
+}
+
+export function isRevenueCatOfferingsConfigurationError(error: unknown) {
+  const { code, message, readableErrorCode } = extractRevenueCatErrorDetails(error);
+  const normalizedMessage = message?.toLowerCase() ?? '';
+  const normalizedReadableCode = readableErrorCode?.toLowerCase() ?? '';
+
+  return (
+    code === '23' ||
+    normalizedReadableCode === 'configurationerror' ||
+    normalizedMessage.includes('error fetching offerings') ||
+    normalizedMessage.includes('no play store products registered') ||
+    normalizedMessage.includes('no products registered in the revenuecat dashboard')
+  );
+}
+
+export function isRevenueCatNetworkError(error: unknown) {
+  const { code, message, readableErrorCode } = extractRevenueCatErrorDetails(error);
+  const normalizedReadableCode = readableErrorCode?.toLowerCase() ?? '';
+
+  return (
+    code === '2' ||
+    normalizedReadableCode === 'networkerror' ||
+    isLikelyNetworkError(message ?? error)
+  );
 }
 
 async function loadPurchasesModule() {
@@ -195,8 +244,17 @@ export async function loadRevenueCatOfferings() {
   }
 
   const Purchases = await loadPurchasesModule();
-  const offerings = await Purchases.getOfferings();
-  return offerings.current ?? null;
+
+  try {
+    const offerings = await Purchases.getOfferings();
+    return offerings.current ?? null;
+  } catch (error) {
+    if (isRevenueCatOfferingsConfigurationError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function loadRevenueCatPackageOptions(
@@ -300,6 +358,10 @@ export function isRevenueCatPurchaseCancelled(error: unknown) {
 export function getRevenueCatErrorMessage(error: unknown, fallbackMessage: string) {
   if (isRevenueCatPurchaseCancelled(error)) {
     return 'Purchase cancelled.';
+  }
+
+  if (isRevenueCatNetworkError(error)) {
+    return DEFAULT_NETWORK_ERROR_MESSAGE;
   }
 
   if (error instanceof Error && error.message.trim()) {

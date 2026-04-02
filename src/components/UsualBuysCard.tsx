@@ -1,45 +1,81 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAppTheme } from './AppThemeProvider';
-import type { ScanHistoryEntry } from '../services/scanHistoryStorage';
 
-type UsualBuysCardProps = {
-  entries: ScanHistoryEntry[];
-  onOpenEntry: (entry: ScanHistoryEntry) => void;
+export type UsualBuyCardItem = {
+  id: string;
+  isFavorite: boolean;
+  name: string;
+  score: number | null;
+  summary: string;
+  usageCount: number;
 };
 
+type UsualBuysCardProps = {
+  hideHistoryAction?: boolean;
+  items: UsualBuyCardItem[];
+  onOpenHistory: () => void;
+  onOpenSearch: () => void;
+};
+
+function getStatusLabel(score: number | null) {
+  if (score === null) {
+    return 'Needs another look';
+  }
+
+  if (score >= 80) {
+    return 'Solid repeat';
+  }
+
+  if (score >= 60) {
+    return 'Keep comparing';
+  }
+
+  return 'Worth replacing';
+}
+
 export default function UsualBuysCard({
-  entries,
-  onOpenEntry,
+  hideHistoryAction = false,
+  items,
+  onOpenHistory,
+  onOpenSearch,
 }: UsualBuysCardProps) {
   const { colors, typography } = useAppTheme();
-  const styles = createStyles(colors, typography);
+  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
-  if (entries.length === 0) {
+  if (items.length === 0) {
     return null;
   }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.label}>Usual buys</Text>
-      <Text style={styles.title}>Products you keep coming back to</Text>
-      {entries.map((entry) => (
-        <Pressable
-          key={entry.id}
-          onPress={() => onOpenEntry(entry)}
-          style={styles.row}
-        >
-          <View style={styles.textBlock}>
-            <Text style={styles.rowTitle}>{entry.name}</Text>
-            <Text style={styles.rowBody}>
-              {entry.scanCount} scans • {entry.riskSummary}
+      <Text style={styles.label}>Usual Buys</Text>
+      <Text style={styles.title}>What you reach for most</Text>
+      {items.map((item) => (
+        <View key={item.id} style={styles.row}>
+          <View style={styles.copy}>
+            <Text style={styles.name}>
+              {item.name}
+              {item.isFavorite ? ' • Favorite' : ''}
+            </Text>
+            <Text style={styles.meta}>
+              {item.usageCount} scan{item.usageCount === 1 ? '' : 's'} • {item.summary}
             </Text>
           </View>
-          <Text style={styles.score}>
-            {typeof entry.score === 'number' ? Math.round(entry.score) : '--'}
-          </Text>
-        </Pressable>
+          <Text style={styles.status}>{getStatusLabel(item.score)}</Text>
+        </View>
       ))}
+      <View style={styles.actions}>
+        <Pressable onPress={onOpenSearch} style={styles.actionChip}>
+          <Text style={styles.actionText}>Search usual buys</Text>
+        </Pressable>
+        {!hideHistoryAction ? (
+          <Pressable onPress={onOpenHistory} style={styles.actionChip}>
+            <Text style={styles.actionText}>Open history</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -49,54 +85,74 @@ const createStyles = (
   typography: ReturnType<typeof useAppTheme>['typography']
 ) =>
   StyleSheet.create({
+    actionChip: {
+      alignItems: 'center',
+      backgroundColor: colors.primaryMuted,
+      borderRadius: 999,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    actionText: {
+      color: colors.primary,
+      fontFamily: typography.accentFontFamily,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    actions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
     card: {
       backgroundColor: colors.surface,
       borderColor: colors.border,
       borderRadius: 24,
       borderWidth: 1,
-      gap: 12,
+      gap: 14,
       padding: 20,
+    },
+    copy: {
+      flex: 1,
+      gap: 4,
     },
     label: {
       color: colors.primary,
       fontFamily: typography.accentFontFamily,
       fontSize: 12,
       fontWeight: '800',
+      letterSpacing: 0.4,
       textTransform: 'uppercase',
     },
-    row: {
-      alignItems: 'center',
-      backgroundColor: colors.background,
-      borderColor: colors.border,
-      borderRadius: 18,
-      borderWidth: 1,
-      flexDirection: 'row',
-      gap: 12,
-      padding: 14,
-    },
-    rowBody: {
+    meta: {
       color: colors.textMuted,
       fontFamily: typography.bodyFontFamily,
       fontSize: 13,
       lineHeight: 19,
     },
-    rowTitle: {
+    name: {
       color: colors.text,
       fontFamily: typography.headingFontFamily,
       fontSize: 15,
-      fontWeight: '800',
+      fontWeight: '700',
     },
-    score: {
+    row: {
+      flexDirection: 'row',
+      gap: 12,
+      justifyContent: 'space-between',
+    },
+    status: {
       color: colors.primary,
-      fontFamily: typography.numericFontFamily,
-      fontSize: 20,
+      fontFamily: typography.accentFontFamily,
+      fontSize: 12,
       fontWeight: '800',
+      maxWidth: 90,
+      textAlign: 'right',
     },
-    textBlock: { flex: 1, gap: 4 },
     title: {
       color: colors.text,
       fontFamily: typography.headingFontFamily,
-      fontSize: 20,
+      fontSize: 22,
       fontWeight: '800',
+      lineHeight: 27,
     },
   });

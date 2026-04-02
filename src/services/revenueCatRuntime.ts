@@ -2,6 +2,7 @@ import { subscribeAuthSession } from '../store';
 import { refreshCurrentPremiumEntitlement } from './premiumEntitlementService';
 import {
   initializeRevenueCatForCurrentUser,
+  isRevenueCatNetworkError,
   subscribeToRevenueCatCustomerInfoUpdates,
 } from './revenueCatService';
 
@@ -9,6 +10,18 @@ export function startRevenueCatRuntime() {
   let unsubscribeCustomerInfo: () => void = () => {};
   let isDisposed = false;
   let hasAttachedCustomerListener = false;
+
+  const refreshEntitlementSafely = async () => {
+    try {
+      await refreshCurrentPremiumEntitlement();
+    } catch (error) {
+      if (isRevenueCatNetworkError(error)) {
+        return;
+      }
+
+      // Keep billing refresh failures from interrupting the app shell.
+    }
+  };
 
   const ensureRuntime = async () => {
     const isReady = await initializeRevenueCatForCurrentUser().catch(() => false);
@@ -19,18 +32,22 @@ export function startRevenueCatRuntime() {
 
     if (!hasAttachedCustomerListener) {
       unsubscribeCustomerInfo = await subscribeToRevenueCatCustomerInfoUpdates(() => {
-        void refreshCurrentPremiumEntitlement();
+        void refreshEntitlementSafely();
       });
       hasAttachedCustomerListener = true;
     }
 
-    await refreshCurrentPremiumEntitlement();
+    await refreshEntitlementSafely();
   };
 
-  void ensureRuntime();
+  void ensureRuntime().catch(() => {
+    // Billing runtime should never block app startup.
+  });
 
   const unsubscribeAuth = subscribeAuthSession(() => {
-    void ensureRuntime();
+    void ensureRuntime().catch(() => {
+      // Auth changes should not surface billing runtime errors in the UI.
+    });
   });
 
   return () => {

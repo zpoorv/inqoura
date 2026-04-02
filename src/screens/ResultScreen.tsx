@@ -19,8 +19,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import ViewShot from 'react-native-view-shot';
 
 import { useAppTheme } from '../components/AppThemeProvider';
+import EnvironmentalImpactCard from '../components/EnvironmentalImpactCard';
 import IngredientExplanationModal from '../components/IngredientExplanationModal';
 import PremiumGuidanceCard from '../components/PremiumGuidanceCard';
+import ProductRestrictionCard from '../components/ProductRestrictionCard';
 import ProductSuggestionsCard from '../components/ProductSuggestionsCard';
 import ReportProductIssueModal from '../components/ReportProductIssueModal';
 import ResultCardSkeleton from '../components/ResultCardSkeleton';
@@ -33,6 +35,7 @@ import {
   type DietProfileId,
 } from '../constants/dietProfiles';
 import type { PremiumEntitlement } from '../models/premium';
+import type { RestrictionId, RestrictionSeverity } from '../models/restrictions';
 import type { ShareCardStyleId } from '../models/shareCardStyle';
 import type { RootStackParamList } from '../navigation/types';
 import type { ScanResultSource } from '../types/scanner';
@@ -42,7 +45,6 @@ import {
   buildCorrectionReportSummary,
   submitCorrectionReport,
 } from '../services/correctionReportService';
-import { syncDietProfileForCurrentUser } from '../services/dietProfileStorage';
 import {
   loadSavedProductCollections,
   toggleComparisonProductCode,
@@ -53,6 +55,7 @@ import {
   loadFeatureQuotaSnapshot,
   type FeatureQuotaSnapshot,
 } from '../services/featureUsageStorage';
+import { loadEffectiveShoppingProfile } from '../services/householdProfilesService';
 import {
   hasPremiumFeatureAccess,
   loadCurrentPremiumEntitlement,
@@ -62,7 +65,9 @@ import {
   saveShareCardStyleId,
   syncShareCardStyleForCurrentUser,
 } from '../services/shareCardPreferenceStorage';
+import { loadUserProfile } from '../services/userProfileService';
 import { getPremiumSession, subscribePremiumSession } from '../store';
+import { getRestrictionDefinition } from '../constants/restrictions';
 import {
   SHARE_CARD_STYLE_DEFINITIONS,
 } from '../constants/shareCardStyles';
@@ -82,7 +87,9 @@ import {
   type ResultConfidence,
   type ResultAnalysis,
 } from '../utils/resultAnalysis';
+import { assessProductRestrictions } from '../utils/restrictionMatching';
 import { buildShareableResultCaption } from '../utils/shareableResult';
+import { buildEnvironmentalImpactInsight } from '../utils/environmentalImpact';
 
 type ResultScreenProps = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
@@ -312,6 +319,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     useState<ShareCardStyleId>('classic');
   const [shareQuotaSnapshot, setShareQuotaSnapshot] =
     useState<FeatureQuotaSnapshot | null>(null);
+  const [activeRestrictionIds, setActiveRestrictionIds] = useState<RestrictionId[]>([]);
+  const [restrictionSeverity, setRestrictionSeverity] =
+    useState<RestrictionSeverity>('strict');
   const displayProductName = useMemo(
     () => formatProductName(product?.name),
     [product?.name]
@@ -364,7 +374,37 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     () => Math.min(windowWidth - 64, 360),
     [windowWidth]
   );
+  const environmentalInsight = useMemo(
+    () => buildEnvironmentalImpactInsight(product),
+    [product]
+  );
   const productIdentifier = product.code || barcode;
+  const selectedRestrictionLabels = useMemo(
+    () =>
+      activeRestrictionIds
+        .map((restrictionId) => getRestrictionDefinition(restrictionId)?.label ?? null)
+        .filter((label): label is string => Boolean(label)),
+    [activeRestrictionIds]
+  );
+  const restrictionAssessment = useMemo(
+    () => assessProductRestrictions(product, activeRestrictionIds, restrictionSeverity),
+    [activeRestrictionIds, product, restrictionSeverity]
+  );
+  const restrictionSummary = useMemo(() => {
+    if (activeRestrictionIds.length === 0) {
+      return null;
+    }
+
+    if (restrictionAssessment.summary) {
+      return restrictionAssessment.summary;
+    }
+
+    if (selectedRestrictionLabels.length === 0) {
+      return 'No strong matches found for your selected filters.';
+    }
+
+    return `No strong matches found for ${selectedRestrictionLabels.join(', ')}.`;
+  }, [activeRestrictionIds.length, restrictionAssessment.summary, selectedRestrictionLabels]);
   const isFavorite = favoriteProductCodes.includes(productIdentifier);
   const isSavedForCompare = comparisonProductCodes.includes(productIdentifier);
   const canShowPremiumGuidance = hasPremiumFeatureAccess(
@@ -430,10 +470,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
     let isMounted = true;
 
     const restoreProfile = async () => {
-      const savedProfileId = await syncDietProfileForCurrentUser();
+      const effectiveProfile = await loadEffectiveShoppingProfile();
 
       if (isMounted) {
-        setSelectedProfileId(savedProfileId);
+        setSelectedProfileId(effectiveProfile.dietProfileId);
         setHasResolvedProfile(true);
       }
     };
@@ -444,6 +484,32 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       isMounted = false;
     };
   }, [route.params.profileId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreRestrictions = async () => {
+      const [profile, effectiveProfile] = await Promise.all([
+        loadUserProfile(),
+        loadEffectiveShoppingProfile(),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      setActiveRestrictionIds(effectiveProfile.restrictionIds ?? profile?.restrictionIds ?? []);
+      setRestrictionSeverity(
+        effectiveProfile.restrictionSeverity ?? profile?.restrictionSeverity ?? 'strict'
+      );
+    };
+
+    void restoreRestrictions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -1067,6 +1133,15 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 
         {trustSnapshot ? <ResultTrustCard trust={trustSnapshot} /> : null}
 
+        {restrictionSummary ? (
+          <ProductRestrictionCard
+            matches={restrictionAssessment.matches}
+            selectedLabels={selectedRestrictionLabels}
+            summary={restrictionSummary}
+            tone={restrictionAssessment.tone}
+          />
+        ) : null}
+
         {!analysisResult ? (
           <ResultCardSkeleton />
         ) : (
@@ -1216,6 +1291,8 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         ) : null}
       </View>
 
+      {environmentalInsight ? <EnvironmentalImpactCard insight={environmentalInsight} /> : null}
+
       </ScrollView>
       {shareableResult ? (
         <Pressable
@@ -1242,8 +1319,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         </Pressable>
       ) : null}
       <IngredientExplanationModal
+        dietProfileId={selectedProfileId}
         lookup={selectedIngredientExplanation}
         onClose={() => setSelectedIngredient(null)}
+        restrictionIds={activeRestrictionIds}
         visible={selectedIngredient !== null}
       />
       <ReportProductIssueModal

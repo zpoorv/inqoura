@@ -3,6 +3,7 @@ import { deleteUser } from 'firebase/auth';
 import { getAuthSession } from '../store';
 import { clearAppLookIdForUser } from './appLookPreferenceStorage';
 import { clearAuthenticatedSession, AuthServiceError } from './authHelpers';
+import { clearCommonProductsForUser } from './commonProductStorage';
 import { deleteRemoteUserData } from './cloudUserDataService';
 import {
   clearDietProfileForUser,
@@ -10,6 +11,7 @@ import {
 } from './dietProfileStorage';
 import { clearFeatureUsageForUser } from './featureUsageStorage';
 import { getFirebaseAuth } from './firebaseAuth';
+import { clearProductChangeAlertsForUser } from './productChangeAlertService';
 import { clearScanHistoryForUser } from './scanHistoryStorage';
 import { clearShareCardStyleForUser } from './shareCardPreferenceStorage';
 import { clearAppearanceModeForUser } from './themePreferenceStorage';
@@ -52,9 +54,11 @@ export async function deleteCurrentAccount() {
     clearAppLookIdForUser(sessionUser.id),
     clearAppearanceModeForUser(sessionUser.id),
     clearAuthenticatedSession(),
+    clearCommonProductsForUser(sessionUser.id),
     clearDietProfileForUser(sessionUser.id),
     clearDietProfileIntroSeen(),
     clearFeatureUsageForUser(sessionUser.id),
+    clearProductChangeAlertsForUser(sessionUser.id),
     clearScanHistoryForUser(sessionUser.id),
     clearShareCardStyleForUser(sessionUser.id),
     clearUserProfile(sessionUser.id),

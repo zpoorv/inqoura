@@ -1,11 +1,14 @@
 import type { DietProfileId } from '../constants/dietProfiles';
+import type { HouseholdProfile } from './householdProfile';
 import type { AppearanceMode, AppLookId } from './preferences';
+import type { RestrictionId, RestrictionSeverity } from './restrictions';
 import type { ShareCardStyleId } from './shareCardStyle';
 
 export type UserRole = 'admin' | 'premium' | 'user';
 export type HistoryNotificationCadence = 'smart' | 'weekly';
 
 export type UserProfile = {
+  activeHouseholdProfileId: string | null;
   appLookId: AppLookId;
   appearanceMode: AppearanceMode;
   comparisonProductCodes: string[];
@@ -17,8 +20,11 @@ export type UserProfile = {
   historyInsightsEnabled: boolean;
   historyNotificationCadence: HistoryNotificationCadence;
   historyNotificationsEnabled: boolean;
+  householdProfiles: HouseholdProfile[];
   name: string;
   plan: 'free' | 'premium';
+  restrictionIds: RestrictionId[];
+  restrictionSeverity: RestrictionSeverity;
   role: UserRole;
   shareCardStyleId: ShareCardStyleId;
   uid: string;

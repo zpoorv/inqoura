@@ -6,9 +6,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CustomerInfo, PurchasesOffering } from 'react-native-purchases';
 
 import { useAppTheme } from '../components/AppThemeProvider';
+import NoInternetScreen from '../components/NoInternetScreen';
 import PrimaryButton from '../components/PrimaryButton';
 import ScreenLoadingView from '../components/ScreenLoadingView';
 import SubscriptionOptionCard from '../components/SubscriptionOptionCard';
+import TrustPromiseCard from '../components/TrustPromiseCard';
 import {
   PREMIUM_BONUS_FEATURES,
   PREMIUM_FEATURE_COPY,
@@ -25,6 +27,7 @@ import {
   getRevenueCatErrorMessage,
   getRevenueCatPremiumState,
   isRevenueCatAvailable,
+  isRevenueCatNetworkError,
   isRevenueCatPurchaseCancelled,
   loadRevenueCatCustomerInfo,
   loadRevenueCatOfferings,
@@ -47,6 +50,7 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
   const [entitlement, setEntitlement] = useState<PremiumEntitlement>(getPremiumSession());
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isLoadingPremium, setIsLoadingPremium] = useState(true);
+  const [isOfflineStateVisible, setIsOfflineStateVisible] = useState(false);
   const [packageOptions, setPackageOptions] = useState<RevenueCatPackageOption[]>([]);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const shouldShowLoadingScreen = useDelayedVisibility(
@@ -76,7 +80,34 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
     setEntitlement(latestEntitlement);
     setPackageOptions(nextPackageOptions);
     setHasLoadedOnce(true);
+    setIsOfflineStateVisible(false);
   }, []);
+
+  const refreshPremiumState = useCallback(
+    async (options?: { showLoadingScreen?: boolean }) => {
+      if (options?.showLoadingScreen && !hasLoadedOnce) {
+        setIsLoadingPremium(true);
+      }
+
+      try {
+        await loadPremiumState();
+      } catch (error) {
+        if (isRevenueCatNetworkError(error)) {
+          setIsOfflineStateVisible(true);
+          setHasLoadedOnce(true);
+          return;
+        }
+
+        Alert.alert(
+          'Premium unavailable',
+          getRevenueCatErrorMessage(error, 'We could not load premium billing right now.')
+        );
+      } finally {
+        setIsLoadingPremium(false);
+      }
+    },
+    [hasLoadedOnce, loadPremiumState]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -92,22 +123,10 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
           setIsLoadingPremium(true);
         }
 
-        try {
-          await loadPremiumState();
-        } catch (error) {
-          if (isMounted) {
-            Alert.alert(
-              'Premium unavailable',
-              getRevenueCatErrorMessage(
-                error,
-                'We could not load premium billing right now.'
-              )
-            );
-          }
-        } finally {
-          if (isMounted) {
-            setIsLoadingPremium(false);
-          }
+        await refreshPremiumState({ showLoadingScreen: !hasLoadedOnce });
+
+        if (!isMounted) {
+          return;
         }
       };
 
@@ -117,7 +136,7 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
         isMounted = false;
         unsubscribe();
       };
-    }, [hasLoadedOnce, loadPremiumState])
+    }, [hasLoadedOnce, refreshPremiumState])
   );
 
   const handlePurchasePackage = async (selectedPackage: RevenueCatPackageOption) => {
@@ -216,6 +235,18 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
     );
   }
 
+  if (isOfflineStateVisible) {
+    return (
+      <NoInternetScreen
+        onRetry={() => {
+          void refreshPremiumState();
+        }}
+        subtitle="Premium plans need internet to check your subscription and load the latest offers."
+        title="Premium needs a connection"
+      />
+    );
+  }
+
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -224,11 +255,11 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
           <Text style={styles.title}>
             {entitlement.isPremium
               ? 'Premium is active on this account'
-              : 'Upgrade with RevenueCat billing'}
+              : 'Upgrade for deeper guidance'}
           </Text>
           <Text style={styles.subtitle}>
             {highlightedFeature?.description ||
-              `Free helps you scan. Premium helps you understand what matters, what to swap, and what your habits are turning into over time. ${PREMIUM_PRICE_PREVIEW_COPY}`}
+              `Free helps you scan. Premium helps you understand what matters, what to swap, and what your habits are turning into over time. It never buys a better score. ${PREMIUM_PRICE_PREVIEW_COPY}`}
           </Text>
           <View
             style={[
@@ -250,6 +281,8 @@ export default function PremiumScreen({ route }: PremiumScreenProps) {
             </Text>
           </View>
         </View>
+
+        <TrustPromiseCard />
 
         <View style={styles.billingCard}>
           <Text style={styles.sectionTitle}>Billing status</Text>

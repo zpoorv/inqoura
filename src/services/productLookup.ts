@@ -1,5 +1,6 @@
 import {
   fetchProductByBarcode,
+  fetchProductsByQuery,
 } from './openFoodFacts';
 import type {
   OpenFoodFactsNutriments,
@@ -20,6 +21,8 @@ import {
   applyProductOverride,
   loadProductOverride,
 } from './productOverrideService';
+import { loadCommonProductByBarcode } from './commonProductStorage';
+import { isLikelyNetworkError } from '../utils/networkErrors';
 
 export class ProductLookupError extends Error {
   kind: 'network' | 'service';
@@ -33,22 +36,6 @@ export class ProductLookupError extends Error {
 
 const resolvedProductCache = new Map<string, ResolvedProduct | null>();
 const pendingProductLookups = new Map<string, Promise<ResolvedProduct | null>>();
-
-function isNetworkError(error: unknown) {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  const errorMessage = error.message.toLowerCase();
-
-  return (
-    error instanceof TypeError ||
-    errorMessage.includes('network request failed') ||
-    errorMessage.includes('failed to fetch') ||
-    errorMessage.includes('fetch failed') ||
-    errorMessage.includes('timed out')
-  );
-}
 
 function toTitleCase(value: string) {
   return value
@@ -179,6 +166,26 @@ function resolveLabels(offProduct: OpenFoodFactsProduct | null) {
   return offProduct?.labels_tags?.map(humanizeTag) || [];
 }
 
+function resolveOrigins(offProduct: OpenFoodFactsProduct | null) {
+  const origins = splitCommaSeparatedValues(offProduct?.origins);
+
+  if (origins.length > 0) {
+    return origins;
+  }
+
+  return offProduct?.origins_tags?.map(humanizeTag) || [];
+}
+
+function resolvePackagingDetails(offProduct: OpenFoodFactsProduct | null) {
+  const packagingDetails = splitCommaSeparatedValues(offProduct?.packaging);
+
+  if (packagingDetails.length > 0) {
+    return packagingDetails;
+  }
+
+  return offProduct?.packaging_tags?.map(humanizeTag) || [];
+}
+
 function resolveAllergens(offProduct: OpenFoodFactsProduct | null) {
   const allergens = splitCommaSeparatedValues(
     offProduct?.allergens_from_ingredients || offProduct?.allergens
@@ -207,6 +214,71 @@ function buildSourceInfo(
       status: offProduct ? 'used' : 'missed',
     },
   ];
+}
+
+function withOfflineFallbackSource(
+  product: ResolvedProduct,
+  note: string
+): ResolvedProduct {
+  return {
+    ...product,
+    sources: [
+      {
+        id: 'offline_cache',
+        label: 'Saved product copy',
+        note,
+        status: 'used',
+      },
+      ...product.sources.map((source) => {
+        const status: ProductSourceInfo['status'] =
+          source.id === 'offline_cache' ? 'used' : 'missed';
+
+        return {
+          ...source,
+          status,
+        };
+      }),
+    ],
+  };
+}
+
+export function resolveProductFromCatalogProduct(
+  barcode: string,
+  offProduct: OpenFoodFactsProduct
+): ResolvedProduct {
+  const { name, reason } = resolveDisplayName(barcode, offProduct);
+  const nutrition = extractNutritionFromOpenFoodFacts(offProduct?.nutriments);
+
+  return {
+    additiveCount: offProduct?.additives_n || 0,
+    additiveTags: offProduct?.additives_tags?.map(humanizeTag) || [],
+    allergens: resolveAllergens(offProduct),
+    barcode,
+    brand: offProduct?.brands?.trim() || null,
+    categories: resolveCategories(offProduct),
+    code: offProduct?.code?.trim() || barcode,
+    ecoScore: normalizeGrade(offProduct?.ecoscore_grade),
+    imageUrl:
+      offProduct?.image_front_url || offProduct?.image_front_small_url || null,
+    ingredientsImageUrl: offProduct?.image_ingredients_url || null,
+    ingredientsText:
+      offProduct?.ingredients_text?.trim() ||
+      offProduct?.ingredients_text_en?.trim() ||
+      null,
+    labels: resolveLabels(offProduct),
+    name,
+    nameReason: reason,
+    novaGroup: offProduct?.nova_group ?? null,
+    nutrition,
+    nutritionImageUrl: offProduct?.image_nutrition_url || null,
+    nutriScore: normalizeGrade(
+      offProduct?.nutriscore_grade || offProduct?.nutrition_grades
+    ),
+    origins: resolveOrigins(offProduct),
+    packagingDetails: resolvePackagingDetails(offProduct),
+    quantity: offProduct?.quantity?.trim() || null,
+    sources: buildSourceInfo(offProduct, null),
+  };
 }
 
 export async function resolveProductByBarcode(
@@ -255,6 +327,7 @@ async function performProductLookup(
   barcode: string,
   barcodeType?: string | null
 ): Promise<ResolvedProduct | null> {
+  const commonFallback = await loadCommonProductByBarcode(barcode);
   let offProduct: OpenFoodFactsProduct | null = null;
   let offError: unknown = null;
 
@@ -265,8 +338,17 @@ async function performProductLookup(
   }
 
   if (!offProduct) {
+    if (commonFallback) {
+      return withOfflineFallbackSource(
+        commonFallback.product,
+        offError
+          ? 'Loaded from your saved product copy because the live catalog could not be reached.'
+          : 'Loaded from your saved product copy because this barcode was not available in the live catalog.'
+      );
+    }
+
     if (offError) {
-      const kind = isNetworkError(offError) ? 'network' : 'service';
+      const kind = isLikelyNetworkError(offError) ? 'network' : 'service';
 
       throw new ProductLookupError(
         kind,
@@ -279,34 +361,13 @@ async function performProductLookup(
     return null;
   }
 
-  const { name, reason } = resolveDisplayName(barcode, offProduct);
-  const nutrition = extractNutritionFromOpenFoodFacts(offProduct?.nutriments);
-  return {
-    additiveCount: offProduct?.additives_n || 0,
-    additiveTags: offProduct?.additives_tags?.map(humanizeTag) || [],
-    allergens: resolveAllergens(offProduct),
-    barcode,
-    brand: offProduct?.brands?.trim() || null,
-    categories: resolveCategories(offProduct),
-    code: offProduct?.code?.trim() || barcode,
-    ecoScore: normalizeGrade(offProduct?.ecoscore_grade),
-    imageUrl:
-      offProduct?.image_front_url || offProduct?.image_front_small_url || null,
-    ingredientsImageUrl: offProduct?.image_ingredients_url || null,
-    ingredientsText:
-      offProduct?.ingredients_text?.trim() ||
-      offProduct?.ingredients_text_en?.trim() ||
-      null,
-    labels: resolveLabels(offProduct),
-    name,
-    nameReason: reason,
-    novaGroup: offProduct?.nova_group ?? null,
-    nutrition,
-    nutritionImageUrl: offProduct?.image_nutrition_url || null,
-    nutriScore: normalizeGrade(
-      offProduct?.nutriscore_grade || offProduct?.nutrition_grades
-    ),
-    quantity: offProduct?.quantity?.trim() || null,
-    sources: buildSourceInfo(offProduct, offError),
-  };
+  return resolveProductFromCatalogProduct(barcode, offProduct);
+}
+
+export async function searchResolvedProducts(query: string) {
+  const products = await fetchProductsByQuery(query);
+
+  return products.map((product) =>
+    resolveProductFromCatalogProduct(product.code?.trim() || query, product)
+  );
 }

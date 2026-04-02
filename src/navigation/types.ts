@@ -24,6 +24,7 @@ export type RootStackParamList = {
     | undefined;
   ProfileDetails: undefined;
   ResetPassword: undefined;
+  Search: undefined;
   Scanner:
     | {
         profileId?: DietProfileId;

@@ -15,9 +15,12 @@ import { useAppTheme } from '../components/AppThemeProvider';
 import HistoryInsightsCard from '../components/HistoryInsightsCard';
 import HistoryListItemSkeleton from '../components/HistoryListItemSkeleton';
 import HistoryListItem from '../components/HistoryListItem';
+import ProductChangeAlertsCard from '../components/ProductChangeAlertsCard';
 import UsualBuysCard from '../components/UsualBuysCard';
+import type { ProductChangeAlert } from '../models/productChangeAlert';
 import type { RootStackParamList } from '../navigation/types';
 import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
+import { loadProductChangeAlerts } from '../services/productChangeAlertService';
 import {
   deleteScanHistoryEntries,
   loadScanHistory,
@@ -63,6 +66,7 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
   const [historyInsights, setHistoryInsights] = useState<HistoryInsight[]>([]);
   const [historyTrend, setHistoryTrend] = useState<HistoryTrend>('steady');
   const [isLoading, setIsLoading] = useState(true);
+  const [productChangeAlerts, setProductChangeAlerts] = useState<ProductChangeAlert[]>([]);
   const [favoriteProductCodes, setFavoriteProductCodes] = useState<string[]>([]);
   const [replacementCandidates, setReplacementCandidates] = useState<
     HistoryReplacementCandidate[]
@@ -87,14 +91,16 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
       setIsLoading(true);
 
       try {
-        const [nextEntries, entitlement, profile] = await Promise.all([
+        const [nextEntries, entitlement, profile, changeAlerts] = await Promise.all([
           loadScanHistory(),
           loadCurrentPremiumEntitlement(),
           loadUserProfile(),
+          loadProductChangeAlerts(),
         ]);
 
         if (isMounted) {
           setHistoryEntries(nextEntries);
+          setProductChangeAlerts(changeAlerts);
           setFavoriteProductCodes(profile?.favoriteProductCodes ?? []);
           const overview = buildHistoryOverview(nextEntries, {
             includePremiumPatterns:
@@ -153,6 +159,26 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
       currentIds.filter((id) => !entryIds.includes(id))
     );
   }, []);
+
+  const handleOpenChangedProduct = useCallback(
+    (alert: ProductChangeAlert) => {
+      const matchingEntry = historyEntries.find((entry) => entry.barcode === alert.barcode);
+
+      if (!matchingEntry) {
+        navigation.navigate('Search');
+        return;
+      }
+
+      navigation.push('Result', {
+        barcode: matchingEntry.barcode,
+        barcodeType: matchingEntry.barcodeType,
+        persistToHistory: false,
+        profileId: matchingEntry.profileId,
+        product: matchingEntry.product,
+      });
+    },
+    [historyEntries, navigation]
+  );
 
   const handleToggleSelectAll = useCallback(() => {
     if (selectedEntryIds.length === visibleEntries.length) {
@@ -257,6 +283,12 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
               );
             })}
           </View>
+          <Pressable
+            onPress={() => navigation.navigate('Search')}
+            style={styles.selectionActionChip}
+          >
+            <Text style={styles.selectionActionText}>Search Products</Text>
+          </Pressable>
           {visibleEntries.length > 0 ? (
             <View style={styles.selectionActions}>
               <Pressable
@@ -297,13 +329,36 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           </View>
         ) : null}
 
+        {productChangeAlerts.length > 0 ? (
+          <View style={styles.insightsWrap}>
+            <ProductChangeAlertsCard
+              alerts={productChangeAlerts}
+              onOpenAlert={handleOpenChangedProduct}
+            />
+          </View>
+        ) : null}
+
         {repeatBuyCandidates.length > 0 ? (
           <View style={styles.insightsWrap}>
             <UsualBuysCard
-              entries={historyEntries.filter((entry) =>
-                repeatBuyCandidates.some((candidate) => candidate.id === entry.id)
-              )}
-              onOpenEntry={handleOpenEntry}
+              hideHistoryAction
+              items={repeatBuyCandidates.map((candidate) => {
+                const matchingEntry =
+                  historyEntries.find((entry) => entry.id === candidate.id) ?? null;
+                const favoriteCode =
+                  matchingEntry?.product.code || matchingEntry?.barcode || candidate.id;
+
+                return {
+                  id: candidate.id,
+                  isFavorite: favoriteProductCodes.includes(favoriteCode),
+                  name: candidate.name,
+                  score: matchingEntry?.score ?? null,
+                  summary: candidate.riskSummary,
+                  usageCount: candidate.scanCount,
+                };
+              })}
+              onOpenHistory={() => undefined}
+              onOpenSearch={() => navigation.navigate('Search')}
             />
           </View>
         ) : null}

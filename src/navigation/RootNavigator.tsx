@@ -35,6 +35,7 @@ const loadProfileDetailsScreen = () => import('../screens/ProfileDetailsScreen')
 const loadHistoryScreen = () => import('../screens/HistoryScreen');
 const loadShelfModeScreen = () => import('../screens/ShelfModeScreen');
 const loadIngredientOcrScreen = () => import('../screens/IngredientOcrScreen');
+const loadSearchScreen = () => import('../screens/SearchScreen');
 const loadHelpScreen = () => import('../screens/HelpScreen');
 const loadPrivacyPolicyScreen = () => import('../screens/PrivacyPolicyScreen');
 const loadAboutScreen = () => import('../screens/AboutScreen');
@@ -46,6 +47,7 @@ const ProfileDetailsScreen = lazy(loadProfileDetailsScreen);
 const HistoryScreen = lazy(loadHistoryScreen);
 const ShelfModeScreen = lazy(loadShelfModeScreen);
 const IngredientOcrScreen = lazy(loadIngredientOcrScreen);
+const SearchScreen = lazy(loadSearchScreen);
 const HelpScreen = lazy(loadHelpScreen);
 const PrivacyPolicyScreen = lazy(loadPrivacyPolicyScreen);
 const AboutScreen = lazy(loadAboutScreen);
@@ -58,6 +60,7 @@ const AUTHENTICATED_SCREEN_LOADERS = [
   loadHistoryScreen,
   loadShelfModeScreen,
   loadIngredientOcrScreen,
+  loadSearchScreen,
   loadHelpScreen,
   loadPrivacyPolicyScreen,
   loadAboutScreen,
@@ -219,6 +222,11 @@ export default function RootNavigator() {
                 name="History"
                 component={HistoryScreen}
                 options={{ title: 'Scan History' }}
+              />
+              <Stack.Screen
+                name="Search"
+                component={SearchScreen}
+                options={{ title: 'Search Products' }}
               />
               <Stack.Screen
                 name="ShelfMode"

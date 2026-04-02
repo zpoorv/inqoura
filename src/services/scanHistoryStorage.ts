@@ -17,6 +17,8 @@ import {
   replaceRemoteScanHistory,
   saveRemoteScanHistoryEntry,
 } from './cloudUserDataService';
+import { rememberCommonProduct } from './commonProductStorage';
+import { recordProductChangeAlert } from './productChangeAlertService';
 
 const LEGACY_SCAN_HISTORY_STORAGE_KEY = 'ingredient-scanner/history/v1';
 const SCAN_HISTORY_STORAGE_KEY_PREFIX = 'inqoura/history/v2';
@@ -259,10 +261,15 @@ export async function saveScanToHistory(
   nextEntries.push(nextEntry);
 
   await writeHistory(nextEntries);
+  await rememberCommonProduct(input.barcode, input.product);
   const sessionUser = getAuthSession().user;
 
   if (sessionUser) {
     await saveRemoteScanHistoryEntry(sessionUser.id, nextEntry);
+  }
+
+  if (existingEntry) {
+    await recordProductChangeAlert(existingEntry, nextEntry);
   }
 
   notifyHistoryChangeListeners();

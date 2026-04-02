@@ -178,11 +178,13 @@ Public web pages live in:
 
 - `privacy/index.html`
 - `privacy/delete-account.html`
+- `privacy/terms.html`
 
 Expected hosted URLs:
 
 - `https://inqoura.app/privacy`
 - `https://inqoura.app/delete-account`
+- `https://inqoura.app/terms`
 
 ## Project Structure
 

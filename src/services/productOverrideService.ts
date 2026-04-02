@@ -147,6 +147,8 @@ export function applyProductOverride(
       nutrition: override.nutrition ?? {},
       nutritionImageUrl: null,
       nutriScore: null,
+      origins: [],
+      packagingDetails: [],
       quantity: override.quantity?.trim() || null,
       sources: [overrideSource],
     };

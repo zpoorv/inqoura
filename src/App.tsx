@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -8,6 +9,11 @@ import { queueHistoryNavigation } from './navigation/navigationRef';
 import RootNavigator from './navigation/RootNavigator';
 import { startHistoryNotificationRuntime } from './services/historyNotificationRuntime';
 import { startRevenueCatRuntime } from './services/revenueCatRuntime';
+
+LogBox.ignoreLogs([
+  '[RevenueCat] 😿‼️ Error fetching offerings',
+  '[RevenueCat] 😿‼️ PurchasesError(code=NetworkError',
+]);
 
 export default function App() {
   return (

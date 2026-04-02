@@ -7,7 +7,10 @@ import { useAppTheme } from '../components/AppThemeProvider';
 import DietProfileModal from '../components/DietProfileModal';
 import HistoryInsightsCard from '../components/HistoryInsightsCard';
 import HistoryNotificationsCard from '../components/HistoryNotificationsCard';
+import ProductChangeAlertsCard from '../components/ProductChangeAlertsCard';
 import PrimaryButton from '../components/PrimaryButton';
+import TrustPromiseCard from '../components/TrustPromiseCard';
+import UsualBuysCard, { type UsualBuyCardItem } from '../components/UsualBuysCard';
 import {
   DEFAULT_DIET_PROFILE_ID,
   DIET_PROFILE_DEFINITIONS,
@@ -19,7 +22,6 @@ import {
   loadDietProfileIntroSeen,
   markDietProfileIntroSeen,
   saveDietProfile,
-  syncDietProfileForCurrentUser,
 } from '../services/dietProfileStorage';
 import { loadAdminAppConfig } from '../services/adminAppConfigService';
 import { loadComparisonSession } from '../services/comparisonSessionStorage';
@@ -28,6 +30,9 @@ import {
   type FeatureQuotaSnapshot,
 } from '../services/featureUsageStorage';
 import { loadCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
+import { loadProductChangeAlerts } from '../services/productChangeAlertService';
+import { loadUsualBuyProducts } from '../services/commonProductStorage';
+import { loadEffectiveShoppingProfile } from '../services/householdProfilesService';
 import {
   loadScanHistory,
   subscribeScanHistoryChanges,
@@ -40,6 +45,7 @@ import {
   type HistoryInsight,
   type HistoryNotification,
 } from '../utils/historyPersonalization';
+import type { ProductChangeAlert } from '../models/productChangeAlert';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -59,9 +65,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   } | null>(null);
   const [historyInsights, setHistoryInsights] = useState<HistoryInsight[]>([]);
   const [historyNotifications, setHistoryNotifications] = useState<HistoryNotification[]>([]);
+  const [productChangeAlerts, setProductChangeAlerts] = useState<ProductChangeAlert[]>([]);
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [comparisonSummary, setComparisonSummary] = useState<string | null>(null);
   const [shelfItemCount, setShelfItemCount] = useState(0);
+  const [activeShopperName, setActiveShopperName] = useState('You');
+  const [isHouseholdProfileActive, setIsHouseholdProfileActive] = useState(false);
   const [isHistoryEnabled, setIsHistoryEnabled] = useState(true);
   const [isIngredientOcrEnabled, setIsIngredientOcrEnabled] = useState(true);
   const [isFirstLaunchProfileFlow, setIsFirstLaunchProfileFlow] = useState(false);
@@ -72,6 +81,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [premiumEntitlement, setPremiumEntitlement] = useState<PremiumEntitlement>(
     getPremiumSession()
   );
+  const [usualBuys, setUsualBuys] = useState<UsualBuyCardItem[]>([]);
 
   const selectedProfile =
     DIET_PROFILE_DEFINITIONS.find((profile) => profile.id === selectedProfileId) ||
@@ -99,12 +109,24 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
 
     const refreshPremiumState = async () => {
       const entitlement = await loadCurrentPremiumEntitlement();
-      const [quotaSnapshot, profile, historyEntries, comparisonSession] = await Promise.all([
-        loadFeatureQuotaSnapshot('ingredient-ocr', entitlement),
-        loadUserProfile(),
-        loadScanHistory(),
-        loadComparisonSession(),
-      ]);
+      const [
+        quotaSnapshot,
+        profile,
+        historyEntries,
+        comparisonSession,
+        changeAlerts,
+        effectiveShoppingProfile,
+        usualBuyProducts,
+      ] =
+        await Promise.all([
+          loadFeatureQuotaSnapshot('ingredient-ocr', entitlement),
+          loadUserProfile(),
+          loadScanHistory(),
+          loadComparisonSession(),
+          loadProductChangeAlerts(),
+          loadEffectiveShoppingProfile(),
+          loadUsualBuyProducts(3),
+        ]);
 
       if (!isMounted) {
         return;
@@ -113,12 +135,39 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       setPremiumEntitlement(entitlement);
       setOcrQuotaSnapshot(quotaSnapshot);
       setFavoriteCount(profile?.favoriteProductCodes?.length ?? 0);
+      setProductChangeAlerts(changeAlerts);
+      setSelectedProfileId(effectiveShoppingProfile.dietProfileId);
+      setActiveShopperName(effectiveShoppingProfile.name);
+      setIsHouseholdProfileActive(effectiveShoppingProfile.usesHouseholdProfile);
       setShelfItemCount(comparisonSession.entries.length);
       const comparisonEntries = comparisonSession.entries;
       setComparisonSummary(
         comparisonEntries.length >= 2
           ? `${comparisonEntries[0].name} vs ${comparisonEntries[1].name}`
           : null
+      );
+      setUsualBuys(
+        usualBuyProducts.map((item) => {
+          const matchingHistoryEntry =
+            historyEntries.find(
+              (entry) =>
+                entry.barcode === item.barcode ||
+                entry.product.code === item.code ||
+                entry.id === item.barcode
+            ) ?? null;
+
+          return {
+            id: item.code || item.barcode,
+            isFavorite: (profile?.favoriteProductCodes ?? []).includes(item.code || item.barcode),
+            name: item.name,
+            score: matchingHistoryEntry?.score ?? null,
+            summary:
+              matchingHistoryEntry?.riskSummary ||
+              item.product.categories[0] ||
+              'Scanned recently',
+            usageCount: item.usageCount,
+          };
+        })
       );
       const historyOverview = buildHistoryOverview(historyEntries, {
         includePremiumPatterns:
@@ -160,14 +209,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     let isMounted = true;
 
     const restoreProfile = async () => {
-      const [savedProfileId, hasSeenIntro] = await Promise.all([
-        syncDietProfileForCurrentUser(),
+      const [effectiveShoppingProfile, hasSeenIntro] = await Promise.all([
+        loadEffectiveShoppingProfile(),
         loadDietProfileIntroSeen(),
       ]);
 
       if (isMounted) {
-        setSelectedProfileId(savedProfileId);
-        setDraftProfileId(savedProfileId);
+        setSelectedProfileId(effectiveShoppingProfile.dietProfileId);
+        setDraftProfileId(effectiveShoppingProfile.dietProfileId);
+        setActiveShopperName(effectiveShoppingProfile.name);
+        setIsHouseholdProfileActive(effectiveShoppingProfile.usesHouseholdProfile);
         setIsFirstLaunchProfileFlow(!hasSeenIntro);
         setIsProfileModalVisible(!hasSeenIntro);
       }
@@ -228,7 +279,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.content}>
             <View style={styles.heroBlock}>
               <Text style={styles.title}>Scan food fast</Text>
-              <Text style={styles.subtitle}>Barcode, ingredients, and a clear score.</Text>
+              <Text style={styles.subtitle}>
+                Barcode, ingredients, and a clear trust-backed decision in seconds.
+              </Text>
             </View>
 
             {adminAnnouncement?.title || adminAnnouncement?.body ? (
@@ -246,6 +299,22 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                 ) : null}
               </View>
             ) : null}
+
+            <View style={styles.profileSummaryCard}>
+              <Text style={styles.profileSummaryLabel}>Shopping For</Text>
+              <Text style={styles.profileSummaryTitle}>{activeShopperName}</Text>
+              <Text style={styles.profileSummaryText}>
+                {isHouseholdProfileActive
+                  ? `${selectedProfile.label} household profile is active.`
+                  : `${selectedProfile.label} is your default shopping profile.`}
+              </Text>
+              <Pressable
+                onPress={() => navigation.navigate('Settings')}
+                style={styles.inlineAction}
+              >
+                <Text style={styles.inlineActionText}>Manage Household Profiles</Text>
+              </Pressable>
+            </View>
 
             <View style={styles.profileSummaryCard}>
               <Text style={styles.profileSummaryLabel}>Diet Profile</Text>
@@ -297,6 +366,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </Pressable>
             </View>
 
+            <TrustPromiseCard compact />
+
             {isIngredientOcrEnabled && ocrQuotaSnapshot ? (
               <View style={styles.profileSummaryCard}>
                 <Text style={styles.profileSummaryLabel}>OCR</Text>
@@ -308,12 +379,25 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
             ) : null}
 
+            <UsualBuysCard
+              items={usualBuys}
+              onOpenHistory={() => navigation.navigate('History')}
+              onOpenSearch={() => navigation.navigate('Search')}
+            />
+
             {historyInsights.length > 0 ? (
               <HistoryInsightsCard colors={colors} insights={historyInsights} />
             ) : null}
 
             {historyNotifications.length > 0 ? (
               <HistoryNotificationsCard notifications={historyNotifications} />
+            ) : null}
+
+            {productChangeAlerts.length > 0 ? (
+              <ProductChangeAlertsCard
+                alerts={productChangeAlerts}
+                onOpenAlert={() => navigation.navigate('History')}
+              />
             ) : null}
 
             {premiumEntitlement.isPremium && (favoriteCount > 0 || comparisonSummary) ? (
@@ -355,6 +439,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
                   navigation.navigate('Scanner', { profileId: selectedProfileId })
                 }
               />
+              <Pressable
+                onPress={() => navigation.navigate('Search')}
+                style={styles.secondaryAction}
+              >
+                <Text style={styles.secondaryActionText}>Search Products</Text>
+              </Pressable>
               <Pressable
                 onPress={() => navigation.navigate('ShelfMode')}
                 style={styles.secondaryAction}

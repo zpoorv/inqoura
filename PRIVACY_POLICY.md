@@ -11,7 +11,7 @@ Inqoura is designed to help people review packaged food products by scanning bar
 Depending on how you use Inqoura, we may collect the following information:
 
 - Account information, such as your email address, display name, unique user ID, and sign-in provider details when you create an account or sign in with email or Google.
-- Profile and preference data, such as your name, diet profile, appearance mode, app look, share card style, country code, favorites, comparison selections, and history notification settings.
+- Profile and preference data, such as your name, diet profile, appearance mode, app look, share card style, country code, household shopping profiles, favorites, comparison selections, and history notification settings.
 - Scan and history data, such as scanned barcodes, product results, score details, product comparisons, favorites, and timestamps for items you scan or save.
 - Ingredient label OCR text and related parsing signals generated from photos you choose to take or import for ingredient scanning.
 - Subscription and entitlement data, such as your premium status, active product identifier, and subscription management metadata returned by our billing tools.

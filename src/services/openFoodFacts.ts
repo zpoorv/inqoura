@@ -8,6 +8,10 @@ type OpenFoodFactsResponse = {
   status: number;
 };
 
+type OpenFoodFactsSearchResponse = {
+  products?: OpenFoodFactsProduct[];
+};
+
 const PRODUCT_FIELDS = [
   'additives_n',
   'additives_tags',
@@ -34,9 +38,14 @@ const PRODUCT_FIELDS = [
   'nutriscore_grade',
   'nutriments',
   'nutrition_grades',
+  'origins',
+  'origins_tags',
+  'packaging',
+  'packaging_tags',
   'product_name',
   'product_name_en',
   'quantity',
+  'unique_scans_n',
 ].join(',');
 
 export async function fetchProductByBarcode(
@@ -57,4 +66,22 @@ export async function fetchProductByBarcode(
   }
 
   return null;
+}
+
+export async function fetchProductsByQuery(query: string, pageSize = 16) {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const payload = await fetchJsonWithTimeout<OpenFoodFactsSearchResponse>(
+    `${OPEN_FOOD_FACTS_BASE_URL}/cgi/search.pl?search_terms=${encodeURIComponent(
+      normalizedQuery
+    )}&search_simple=1&action=process&json=1&page_size=${pageSize}&fields=${PRODUCT_FIELDS}`
+  );
+
+  return Array.isArray(payload.products)
+    ? payload.products.filter((product) => typeof product?.code === 'string')
+    : [];
 }

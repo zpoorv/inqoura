@@ -8,11 +8,16 @@ import {
 } from 'react-native';
 
 import { useAppTheme } from './AppThemeProvider';
+import type { DietProfileId } from '../constants/dietProfiles';
+import type { RestrictionId } from '../models/restrictions';
 import type { IngredientExplanationLookup } from '../utils/ingredientExplanations';
+import { buildIngredientEducation } from '../utils/ingredientEducation';
 
 type IngredientExplanationModalProps = {
+  dietProfileId: DietProfileId;
   lookup: IngredientExplanationLookup | null;
   onClose: () => void;
+  restrictionIds: RestrictionId[];
   visible: boolean;
 };
 
@@ -34,12 +39,18 @@ function DetailRow(props: DetailRowProps) {
 }
 
 export default function IngredientExplanationModal({
+  dietProfileId,
   lookup,
   onClose,
+  restrictionIds,
   visible,
 }: IngredientExplanationModalProps) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const education = useMemo(
+    () => buildIngredientEducation(lookup, dietProfileId, restrictionIds),
+    [dietProfileId, lookup, restrictionIds]
+  );
 
   return (
     <Modal
@@ -70,7 +81,7 @@ export default function IngredientExplanationModal({
                 value={lookup.explanation.usedFor}
               />
               <DetailRow
-                label="Why it may matter"
+                label="Why shoppers notice it"
                 styles={styles}
                 value={lookup.explanation.whyItMatters}
               />
@@ -79,6 +90,20 @@ export default function IngredientExplanationModal({
                 styles={styles}
                 value={lookup.explanation.plainEnglish}
               />
+              {education.profileNotes.length > 0 ? (
+                <DetailRow
+                  label="For your profile"
+                  styles={styles}
+                  value={education.profileNotes.join(' ')}
+                />
+              ) : null}
+              {education.betterChoiceTip ? (
+                <DetailRow
+                  label="What to look for next time"
+                  styles={styles}
+                  value={education.betterChoiceTip}
+                />
+              ) : null}
             </View>
           ) : (
             <View style={styles.emptyState}>
