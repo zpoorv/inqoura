@@ -22,12 +22,12 @@ import { loadUserProfile } from './userProfileService';
 
 const SESSION_TTLS = {
   comparisonSession: 30_000,
-  effectiveShoppingProfile: 30_000,
+  effectiveShoppingProfile: 300_000,
   gamificationProfile: 45_000,
-  premiumEntitlement: 45_000,
+  premiumEntitlement: 120_000,
   productChangeAlerts: 30_000,
-  scanHistory: 45_000,
-  userProfile: 60_000,
+  scanHistory: 120_000,
+  userProfile: 300_000,
 } as const;
 
 export type { CachePolicy } from './sessionResourceCache';

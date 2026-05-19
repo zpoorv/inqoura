@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useI18n } from './AppLanguageProvider';
 import { useAppTheme } from './AppThemeProvider';
@@ -18,13 +19,13 @@ export default function ScreenLoadingView({
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
       <View style={styles.card}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.title}>{t(title)}</Text>
         <Text style={styles.subtitle}>{t(subtitle)}</Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

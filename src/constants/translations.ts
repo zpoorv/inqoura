@@ -1,7 +1,9 @@
 import type { AppLanguageCode } from './languages';
+import ACTIVE_PAGE_TRANSLATION_SWEEP from './activePageTranslationSweep';
 import GENERATED_TRANSLATION_PACK from './generatedTranslationPack';
 import GENERATED_SCANNER_TRANSLATION_SUPPLEMENT from './generatedScannerTranslationSupplement';
 import GENERATED_TRANSLATION_SUPPLEMENT from './generatedTranslationSupplement';
+import RESULT_SCREEN_TRANSLATION_SWEEP from './resultScreenTranslationSweep';
 
 type TranslationValues = Record<string, number | string | null | undefined>;
 
@@ -39,8 +41,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'الوضع الداكن',
     'Delete Account': 'حذف الحساب',
     English: 'الإنجليزية',
-    Featured: 'المميزة',
-    'Featured products': 'المنتجات المميزة',
     Feedback: 'الملاحظات',
     French: 'الفرنسية',
     German: 'الألمانية',
@@ -150,7 +150,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'Dunkler Modus',
     'Delete Account': 'Konto loschen',
     English: 'Englisch',
-    Featured: 'Empfohlen',
     Feedback: 'Feedback',
     French: 'Franzosisch',
     German: 'Deutsch',
@@ -228,7 +227,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'Modo oscuro',
     'Delete Account': 'Eliminar cuenta',
     English: 'Ingles',
-    Featured: 'Destacados',
     Feedback: 'Comentarios',
     French: 'Frances',
     German: 'Aleman',
@@ -306,7 +304,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'Mode sombre',
     'Delete Account': 'Supprimer le compte',
     English: 'Anglais',
-    Featured: 'Vedette',
     Feedback: 'Retour',
     French: 'Francais',
     German: 'Allemand',
@@ -384,7 +381,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'डार्क मोड',
     'Delete Account': 'खाता हटाएं',
     English: 'अंग्रेज़ी',
-    Featured: 'फीचर्ड',
     Feedback: 'फीडबैक',
     French: 'फ्रेंच',
     German: 'जर्मन',
@@ -462,7 +458,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'Mode gelap',
     'Delete Account': 'Hapus akun',
     English: 'Inggris',
-    Featured: 'Unggulan',
     Feedback: 'Masukan',
     French: 'Prancis',
     German: 'Jerman',
@@ -540,7 +535,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'ダークモード',
     'Delete Account': 'アカウントを削除',
     English: '英語',
-    Featured: '注目',
     Feedback: 'フィードバック',
     French: 'フランス語',
     German: 'ドイツ語',
@@ -618,7 +612,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': '다크 모드',
     'Delete Account': '계정 삭제',
     English: '영어',
-    Featured: '추천',
     Feedback: '피드백',
     French: '프랑스어',
     German: '독일어',
@@ -696,7 +689,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'Modo escuro',
     'Delete Account': 'Excluir conta',
     English: 'Ingles',
-    Featured: 'Destaques',
     Feedback: 'Feedback',
     French: 'Frances',
     German: 'Alemao',
@@ -774,7 +766,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': 'Темный режим',
     'Delete Account': 'Удалить аккаунт',
     English: 'Английский',
-    Featured: 'Избранное',
     Feedback: 'Обратная связь',
     French: 'Французский',
     German: 'Немецкий',
@@ -852,7 +843,6 @@ const TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
     'Dark Mode': '深色模式',
     'Delete Account': '删除账户',
     English: '英语',
-    Featured: '精选',
     Feedback: '反馈',
     French: '法语',
     German: '德语',
@@ -1221,7 +1211,205 @@ const HOME_SCREEN_TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDicti
   },
 };
 
+const ACCOUNT_INTRO_TRANSLATIONS: Partial<Record<AppLanguageCode, TranslationDictionary>> = {
+  ar: {
+    'Best if you want a normal email and password account.': 'الأفضل إذا كنت تريد حسابًا عاديًا بالبريد الإلكتروني وكلمة المرور.',
+    'Changed products, premium access, and safety controls need identity.': 'تحتاج المنتجات المتغيرة والوصول المميز وعناصر التحكم في الأمان إلى هوية.',
+    'Diet filters, household shoppers, and settings follow your account.': 'تتبع مرشحات النظام الغذائي والمتسوقون المنزليون والإعدادات حسابك.',
+    'Email account': 'حساب البريد الإلكتروني',
+    'Fastest setup if Google sign-in is available on this device.': 'أسرع إعداد إذا كان تسجيل الدخول عبر Google متاحًا على هذا الجهاز.',
+    'Google account': 'حساب Google',
+    'Keep preferences': 'احتفظ بالتفضيلات',
+    'Protect trust': 'احمِ الثقة',
+    'Save your products': 'احفظ منتجاتك',
+    'Start scanning': 'ابدأ المسح',
+    'This language will be used across the app after you create or log into your account.': 'ستُستخدم هذه اللغة في جميع أنحاء التطبيق بعد إنشاء حسابك أو تسجيل الدخول.',
+    'Track progress': 'تابع التقدم',
+    'Verify your email': 'تحقق من بريدك الإلكتروني',
+    'Weekly momentum, badges, and achievements can build safely.': 'يمكن أن يتطور الزخم الأسبوعي والشارات والإنجازات بأمان.',
+    'Your scan history and saved picks stay tied to you.': 'يبقى سجل المسح والاختيارات المحفوظة مرتبطين بك.',
+  },
+  de: {
+    'Best if you want a normal email and password account.': 'Am besten, wenn Sie ein normales Konto mit E-Mail und Passwort möchten.',
+    'Changed products, premium access, and safety controls need identity.': 'Geänderte Produkte, Premium-Zugang und Sicherheitsfunktionen brauchen eine Identität.',
+    'Diet filters, household shoppers, and settings follow your account.': 'Ernährungsfilter, Haushaltsprofile und Einstellungen folgen Ihrem Konto.',
+    'Email account': 'E-Mail-Konto',
+    'Fastest setup if Google sign-in is available on this device.': 'Am schnellsten, wenn die Google-Anmeldung auf diesem Gerät verfügbar ist.',
+    'Google account': 'Google-Konto',
+    'Keep preferences': 'Einstellungen behalten',
+    'Protect trust': 'Vertrauen schützen',
+    'Save your products': 'Produkte speichern',
+    'Start scanning': 'Mit dem Scannen beginnen',
+    'This language will be used across the app after you create or log into your account.': 'Diese Sprache wird in der gesamten App verwendet, nachdem Sie ein Konto erstellt oder sich angemeldet haben.',
+    'Track progress': 'Fortschritt verfolgen',
+    'Verify your email': 'Bestätigen Sie Ihre E-Mail',
+    'Weekly momentum, badges, and achievements can build safely.': 'Wöchentlicher Schwung, Abzeichen und Erfolge können sich sicher aufbauen.',
+    'Your scan history and saved picks stay tied to you.': 'Ihr Scanverlauf und gespeicherte Auswahlen bleiben mit Ihnen verknüpft.',
+  },
+  es: {
+    'Best if you want a normal email and password account.': 'Lo mejor si quieres una cuenta normal con correo y contrasena.',
+    'Changed products, premium access, and safety controls need identity.': 'Los productos cambiados, el acceso premium y los controles de seguridad necesitan identidad.',
+    'Diet filters, household shoppers, and settings follow your account.': 'Los filtros de dieta, perfiles del hogar y ajustes siguen tu cuenta.',
+    'Email account': 'Cuenta de correo',
+    'Fastest setup if Google sign-in is available on this device.': 'La configuracion mas rapida si el inicio con Google esta disponible en este dispositivo.',
+    'Google account': 'Cuenta de Google',
+    'Keep preferences': 'Mantén tus preferencias',
+    'Protect trust': 'Protege la confianza',
+    'Save your products': 'Guarda tus productos',
+    'Start scanning': 'Empieza a escanear',
+    'This language will be used across the app after you create or log into your account.': 'Este idioma se usara en toda la app despues de que crees tu cuenta o inicies sesion.',
+    'Track progress': 'Sigue tu progreso',
+    'Verify your email': 'Verifica tu correo',
+    'Weekly momentum, badges, and achievements can build safely.': 'El impulso semanal, las insignias y los logros pueden crecer con seguridad.',
+    'Your scan history and saved picks stay tied to you.': 'Tu historial de escaneos y tus selecciones guardadas siguen vinculados a ti.',
+  },
+  fr: {
+    'Best if you want a normal email and password account.': 'Le meilleur choix si vous voulez un compte classique avec e-mail et mot de passe.',
+    'Changed products, premium access, and safety controls need identity.': 'Les produits modifies, l’acces premium et les controles de securite ont besoin d’une identite.',
+    'Diet filters, household shoppers, and settings follow your account.': 'Les filtres alimentaires, profils du foyer et reglages suivent votre compte.',
+    'Email account': 'Compte e-mail',
+    'Fastest setup if Google sign-in is available on this device.': 'Configuration la plus rapide si la connexion Google est disponible sur cet appareil.',
+    'Google account': 'Compte Google',
+    'Keep preferences': 'Gardez vos preferences',
+    'Protect trust': 'Proteger la confiance',
+    'Save your products': 'Enregistrez vos produits',
+    'Start scanning': 'Commencez a scanner',
+    'This language will be used across the app after you create or log into your account.': 'Cette langue sera utilisee dans toute l’application apres la creation ou la connexion a votre compte.',
+    'Track progress': 'Suivez vos progres',
+    'Verify your email': 'Verifiez votre e-mail',
+    'Weekly momentum, badges, and achievements can build safely.': 'L’elan hebdomadaire, les badges et les reussites peuvent progresser en toute securite.',
+    'Your scan history and saved picks stay tied to you.': 'Votre historique de scan et vos choix enregistres restent lies a vous.',
+  },
+  hi: {
+    'Best if you want a normal email and password account.': 'अगर आप सामान्य ईमेल और पासवर्ड वाला खाता चाहते हैं तो यह सबसे अच्छा है।',
+    'Changed products, premium access, and safety controls need identity.': 'बदले हुए उत्पाद, प्रीमियम एक्सेस और सुरक्षा नियंत्रण के लिए पहचान जरूरी है।',
+    'Diet filters, household shoppers, and settings follow your account.': 'डाइट फ़िल्टर, घरेलू प्रोफ़ाइल और सेटिंग्स आपके खाते के साथ रहती हैं।',
+    'Email account': 'ईमेल खाता',
+    'Fastest setup if Google sign-in is available on this device.': 'अगर इस डिवाइस पर Google साइन-इन उपलब्ध है तो यह सबसे तेज़ सेटअप है।',
+    'Google account': 'Google खाता',
+    'Keep preferences': 'पसंदें बनाए रखें',
+    'Protect trust': 'भरोसा सुरक्षित रखें',
+    'Save your products': 'अपने उत्पाद सहेजें',
+    'Start scanning': 'स्कैन करना शुरू करें',
+    'This language will be used across the app after you create or log into your account.': 'खाता बनाने या लॉग इन करने के बाद यही भाषा पूरे ऐप में इस्तेमाल होगी।',
+    'Track progress': 'प्रगति ट्रैक करें',
+    'Verify your email': 'अपने ईमेल की पुष्टि करें',
+    'Weekly momentum, badges, and achievements can build safely.': 'साप्ताहिक प्रगति, बैज और उपलब्धियां सुरक्षित रूप से आगे बढ़ सकती हैं।',
+    'Your scan history and saved picks stay tied to you.': 'आपका स्कैन इतिहास और सहेजे गए विकल्प आपसे जुड़े रहते हैं।',
+  },
+  id: {
+    'Best if you want a normal email and password account.': 'Terbaik jika Anda ingin akun biasa dengan email dan kata sandi.',
+    'Changed products, premium access, and safety controls need identity.': 'Produk yang berubah, akses premium, dan kontrol keamanan memerlukan identitas.',
+    'Diet filters, household shoppers, and settings follow your account.': 'Filter diet, profil rumah tangga, dan pengaturan mengikuti akun Anda.',
+    'Email account': 'Akun email',
+    'Fastest setup if Google sign-in is available on this device.': 'Pengaturan tercepat jika masuk dengan Google tersedia di perangkat ini.',
+    'Google account': 'Akun Google',
+    'Keep preferences': 'Simpan preferensi',
+    'Protect trust': 'Jaga kepercayaan',
+    'Save your products': 'Simpan produk Anda',
+    'Start scanning': 'Mulai memindai',
+    'This language will be used across the app after you create or log into your account.': 'Bahasa ini akan digunakan di seluruh aplikasi setelah Anda membuat akun atau masuk.',
+    'Track progress': 'Lacak progres',
+    'Verify your email': 'Verifikasi email Anda',
+    'Weekly momentum, badges, and achievements can build safely.': 'Momentum mingguan, lencana, dan pencapaian bisa berkembang dengan aman.',
+    'Your scan history and saved picks stay tied to you.': 'Riwayat pemindaian dan pilihan tersimpan tetap terikat pada Anda.',
+  },
+  ja: {
+    'Best if you want a normal email and password account.': '通常のメールアドレスとパスワードのアカウントが欲しい場合に最適です。',
+    'Changed products, premium access, and safety controls need identity.': '変更された商品、プレミアムアクセス、安全管理には本人確認が必要です。',
+    'Diet filters, household shoppers, and settings follow your account.': '食事フィルター、家族プロフィール、設定はアカウントに紐づきます。',
+    'Email account': 'メールアカウント',
+    'Fastest setup if Google sign-in is available on this device.': 'この端末で Google サインインが使える場合はこれが最速です。',
+    'Google account': 'Google アカウント',
+    'Keep preferences': '設定を保持する',
+    'Protect trust': '信頼を守る',
+    'Save your products': '商品を保存',
+    'Start scanning': 'スキャンを始める',
+    'This language will be used across the app after you create or log into your account.': 'この言語は、アカウント作成またはログイン後にアプリ全体で使われます。',
+    'Track progress': '進捗を追う',
+    'Verify your email': 'メールを確認する',
+    'Weekly momentum, badges, and achievements can build safely.': '毎週の積み上げ、バッジ、実績を安全に育てられます。',
+    'Your scan history and saved picks stay tied to you.': 'スキャン履歴と保存した候補はあなたに紐づいたままです。',
+  },
+  ko: {
+    'Best if you want a normal email and password account.': '일반적인 이메일과 비밀번호 계정을 원한다면 이 방법이 가장 좋습니다.',
+    'Changed products, premium access, and safety controls need identity.': '변경된 제품, 프리미엄 이용 권한, 안전 제어에는 신원이 필요합니다.',
+    'Diet filters, household shoppers, and settings follow your account.': '식단 필터, 가구 프로필, 설정은 계정을 따라갑니다.',
+    'Email account': '이메일 계정',
+    'Fastest setup if Google sign-in is available on this device.': '이 기기에서 Google 로그인이 가능하다면 가장 빠른 설정입니다.',
+    'Google account': 'Google 계정',
+    'Keep preferences': '환경설정 유지',
+    'Protect trust': '신뢰 지키기',
+    'Save your products': '제품 저장',
+    'Start scanning': '스캔 시작',
+    'This language will be used across the app after you create or log into your account.': '계정을 만들거나 로그인하면 이 언어가 앱 전체에 적용됩니다.',
+    'Track progress': '진행 상황 추적',
+    'Verify your email': '이메일 확인',
+    'Weekly momentum, badges, and achievements can build safely.': '주간 모멘텀, 배지, 업적을 안전하게 쌓아갈 수 있습니다.',
+    'Your scan history and saved picks stay tied to you.': '스캔 기록과 저장한 선택은 계속 본인 계정에 연결됩니다.',
+  },
+  pt: {
+    'Best if you want a normal email and password account.': 'Melhor se voce quiser uma conta normal com email e senha.',
+    'Changed products, premium access, and safety controls need identity.': 'Produtos alterados, acesso premium e controles de seguranca precisam de identidade.',
+    'Diet filters, household shoppers, and settings follow your account.': 'Filtros de dieta, perfis da casa e configuracoes acompanham sua conta.',
+    'Email account': 'Conta de email',
+    'Fastest setup if Google sign-in is available on this device.': 'A configuracao mais rapida se o login do Google estiver disponivel neste dispositivo.',
+    'Google account': 'Conta do Google',
+    'Keep preferences': 'Mantenha preferencias',
+    'Protect trust': 'Proteja a confianca',
+    'Save your products': 'Salve seus produtos',
+    'Start scanning': 'Comece a escanear',
+    'This language will be used across the app after you create or log into your account.': 'Este idioma sera usado em todo o app depois que voce criar sua conta ou fizer login.',
+    'Track progress': 'Acompanhe o progresso',
+    'Verify your email': 'Verifique seu email',
+    'Weekly momentum, badges, and achievements can build safely.': 'O ritmo semanal, os badges e as conquistas podem crescer com seguranca.',
+    'Your scan history and saved picks stay tied to you.': 'Seu historico de escaneamento e selecoes salvas continuam ligados a voce.',
+  },
+  ru: {
+    'Best if you want a normal email and password account.': 'Лучше всего, если вам нужен обычный аккаунт с email и паролем.',
+    'Changed products, premium access, and safety controls need identity.': 'Измененные продукты, премиум-доступ и функции безопасности требуют личности.',
+    'Diet filters, household shoppers, and settings follow your account.': 'Фильтры питания, профили семьи и настройки следуют за вашим аккаунтом.',
+    'Email account': 'Аккаунт по email',
+    'Fastest setup if Google sign-in is available on this device.': 'Самая быстрая настройка, если вход через Google доступен на этом устройстве.',
+    'Google account': 'Аккаунт Google',
+    'Keep preferences': 'Сохраняйте настройки',
+    'Protect trust': 'Защитите доверие',
+    'Save your products': 'Сохраняйте продукты',
+    'Start scanning': 'Начните сканировать',
+    'This language will be used across the app after you create or log into your account.': 'Этот язык будет использоваться во всем приложении после создания аккаунта или входа в него.',
+    'Track progress': 'Следите за прогрессом',
+    'Verify your email': 'Подтвердите ваш email',
+    'Weekly momentum, badges, and achievements can build safely.': 'Недельный ритм, значки и достижения могут безопасно накапливаться.',
+    'Your scan history and saved picks stay tied to you.': 'История сканирования и сохраненные варианты остаются привязанными к вам.',
+  },
+  'zh-CN': {
+    'Best if you want a normal email and password account.': '如果你想使用普通的邮箱和密码账户，这是最合适的。',
+    'Changed products, premium access, and safety controls need identity.': '变更产品、高级权限和安全控制都需要身份。',
+    'Diet filters, household shoppers, and settings follow your account.': '饮食筛选、家庭档案和设置都会跟随你的账户。',
+    'Email account': '邮箱账户',
+    'Fastest setup if Google sign-in is available on this device.': '如果此设备支持 Google 登录，这是最快的设置方式。',
+    'Google account': 'Google 账户',
+    'Keep preferences': '保留偏好',
+    'Protect trust': '保护信任',
+    'Save your products': '保存你的产品',
+    'Start scanning': '开始扫描',
+    'This language will be used across the app after you create or log into your account.': '创建账户或登录后，这种语言会应用到整个应用中。',
+    'Track progress': '跟踪进度',
+    'Verify your email': '验证你的邮箱',
+    'Weekly momentum, badges, and achievements can build safely.': '每周进展、徽章和成就都可以安全地积累。',
+    'Your scan history and saved picks stay tied to you.': '你的扫描历史和已保存选择会一直与你绑定。',
+  },
+};
+
 for (const [languageCode, translations] of Object.entries(HOME_SCREEN_TRANSLATIONS)) {
+  const typedLanguageCode = languageCode as AppLanguageCode;
+  TRANSLATIONS[typedLanguageCode] = {
+    ...(TRANSLATIONS[typedLanguageCode] ?? {}),
+    ...translations,
+  };
+}
+
+for (const [languageCode, translations] of Object.entries(ACCOUNT_INTRO_TRANSLATIONS)) {
   const typedLanguageCode = languageCode as AppLanguageCode;
   TRANSLATIONS[typedLanguageCode] = {
     ...(TRANSLATIONS[typedLanguageCode] ?? {}),
@@ -1248,6 +1436,22 @@ for (const [languageCode, translations] of Object.entries(
 }
 
 for (const [languageCode, translations] of Object.entries(GENERATED_TRANSLATION_SUPPLEMENT)) {
+  const typedLanguageCode = languageCode as AppLanguageCode;
+  TRANSLATIONS[typedLanguageCode] = {
+    ...(TRANSLATIONS[typedLanguageCode] ?? {}),
+    ...translations,
+  };
+}
+
+for (const [languageCode, translations] of Object.entries(ACTIVE_PAGE_TRANSLATION_SWEEP)) {
+  const typedLanguageCode = languageCode as AppLanguageCode;
+  TRANSLATIONS[typedLanguageCode] = {
+    ...(TRANSLATIONS[typedLanguageCode] ?? {}),
+    ...translations,
+  };
+}
+
+for (const [languageCode, translations] of Object.entries(RESULT_SCREEN_TRANSLATION_SWEEP)) {
   const typedLanguageCode = languageCode as AppLanguageCode;
   TRANSLATIONS[typedLanguageCode] = {
     ...(TRANSLATIONS[typedLanguageCode] ?? {}),

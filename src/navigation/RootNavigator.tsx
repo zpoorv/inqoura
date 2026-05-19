@@ -1,15 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Alert, InteractionManager, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, InteractionManager, Linking, StyleSheet, View } from 'react-native';
 
 import BottomMenuBar from '../components/BottomMenuBar';
-import GuidedTutorialOverlay from '../components/GuidedTutorialOverlay';
+import NotificationBellButton from '../components/NotificationBellButton';
 import { useI18n } from '../components/AppLanguageProvider';
 import { useAppTheme } from '../components/AppThemeProvider';
 import ScreenLoadingView from '../components/ScreenLoadingView';
-import TutorialTarget from '../components/TutorialTarget';
 import { APP_NAME } from '../constants/branding';
 import {
   flushPendingHistoryNavigation,
@@ -17,18 +15,14 @@ import {
   rootNavigationRef,
   type MainNavigationRoute,
 } from './navigationRef';
-import AccountIntroScreen from '../screens/AccountIntroScreen';
-import HistoryScreen from '../screens/HistoryScreen';
-import FeaturedProductsScreen from '../screens/FeaturedProductsScreen';
-import HomeScreen from '../screens/HomeScreen';
-import LoginScreen from '../screens/LoginScreen';
-import { PremiumSheet } from '../screens/PremiumScreen';
-import ResultScreen from '../screens/ResultScreen';
-import ResetPasswordScreen from '../screens/ResetPasswordScreen';
-import ScannerScreen from '../screens/ScannerScreen';
-import SearchScreen from '../screens/SearchScreen';
-import SettingsScreen, { SettingsSheet } from '../screens/SettingsScreen';
-import SignUpScreen from '../screens/SignUpScreen';
+import AccountScreen from '../screens/account/AccountScreen';
+import AccountIntroScreen from '../screens/account/AccountIntroScreen';
+import HomeScreen from '../screens/core/HomeScreen';
+import HistoryScreen from '../screens/core/HistoryScreen';
+import PremiumScreen from '../screens/account/PremiumScreen';
+import ResultScreen from '../screens/core/ResultScreen';
+import ResetPasswordScreen from '../screens/account/ResetPasswordScreen';
+import ScannerScreen from '../screens/core/ScannerScreen';
 import { hydrateAuthSession } from '../services/authService';
 import { AuthServiceError } from '../services/authHelpers';
 import {
@@ -45,87 +39,55 @@ import {
   measurePerformanceTrace,
 } from '../services/performanceTrace';
 import { refreshCurrentPremiumEntitlement } from '../services/premiumEntitlementService';
-import {
-  advanceGuidedTutorialFromTarget,
-  openGuidedTutorialStep,
-} from '../services/guidedTutorialService';
 import { clearSessionResourceCache } from '../services/sessionResourceCache';
-import { shouldShowWelcomeTutorial } from '../services/tutorialProgressService';
 import {
-  getGuidedTutorialSession,
   clearPremiumSession,
   getAuthSession,
-  startGuidedTutorial,
   setAuthSession,
-  subscribeGuidedTutorialSession,
-  stopGuidedTutorial,
   subscribeAuthSession,
 } from '../store';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const loadPremiumScreen = () => import('../screens/PremiumScreen');
-const loadProfileDetailsScreen = () => import('../screens/ProfileDetailsScreen');
-const loadProgressScreen = () => import('../screens/ProgressScreen');
-const loadAlertsScreen = () => import('../screens/AlertsScreen');
-const loadTripsScreen = () => import('../screens/TripsScreen');
-const loadShelfModeScreen = () => import('../screens/ShelfModeScreen');
-const loadIngredientOcrScreen = () => import('../screens/IngredientOcrScreen');
-const loadAccountSettingsScreen = () => import('../screens/AccountSettingsScreen');
+const loadAccountSettingsScreen = () => import('../screens/account/AccountSettingsScreen');
 const loadNotificationSettingsScreen = () =>
-  import('../screens/NotificationSettingsScreen');
+  import('../screens/account/NotificationSettingsScreen');
 const loadAppearanceSettingsScreen = () =>
-  import('../screens/AppearanceSettingsScreen');
+  import('../screens/account/AppearanceSettingsScreen');
 const loadHouseholdSettingsScreen = () =>
-  import('../screens/HouseholdSettingsScreen');
-const loadSupportSettingsScreen = () => import('../screens/SupportSettingsScreen');
-const loadHelpScreen = () => import('../screens/HelpScreen');
-const loadPrivacyPolicyScreen = () => import('../screens/PrivacyPolicyScreen');
-const loadAboutScreen = () => import('../screens/AboutScreen');
-const loadFeedbackScreen = () => import('../screens/FeedbackScreen');
+  import('../screens/account/HouseholdSettingsScreen');
+const loadSupportSettingsScreen = () => import('../screens/account/SupportSettingsScreen');
+const loadHelpScreen = () => import('../screens/support/HelpScreen');
+const loadNotificationCenterScreen = () =>
+  import('../screens/support/NotificationCenterScreen');
+const loadPrivacyPolicyScreen = () => import('../screens/support/PrivacyPolicyScreen');
+const loadAboutScreen = () => import('../screens/support/AboutScreen');
+const loadFeedbackScreen = () => import('../screens/support/FeedbackScreen');
 
-const PremiumScreen = lazy(loadPremiumScreen);
-const ProfileDetailsScreen = lazy(loadProfileDetailsScreen);
-const ProgressScreen = lazy(loadProgressScreen);
-const AlertsScreen = lazy(loadAlertsScreen);
-const TripsScreen = lazy(loadTripsScreen);
-const ShelfModeScreen = lazy(loadShelfModeScreen);
-const IngredientOcrScreen = lazy(loadIngredientOcrScreen);
 const AccountSettingsScreen = lazy(loadAccountSettingsScreen);
 const NotificationSettingsScreen = lazy(loadNotificationSettingsScreen);
 const AppearanceSettingsScreen = lazy(loadAppearanceSettingsScreen);
 const HouseholdSettingsScreen = lazy(loadHouseholdSettingsScreen);
 const SupportSettingsScreen = lazy(loadSupportSettingsScreen);
 const HelpScreen = lazy(loadHelpScreen);
+const NotificationCenterScreen = lazy(loadNotificationCenterScreen);
 const PrivacyPolicyScreen = lazy(loadPrivacyPolicyScreen);
 const AboutScreen = lazy(loadAboutScreen);
 const FeedbackScreen = lazy(loadFeedbackScreen);
 
-const BOTTOM_BAR_ROUTES = new Set<keyof RootStackParamList>([
-  'FeaturedProducts',
+const PRIMARY_ROUTES = new Set<keyof RootStackParamList>([
+  'Account',
   'Home',
-  'Search',
   'History',
+  'Premium',
   'Scanner',
 ]);
-const HIDE_BACK_ARROW_ROUTES = new Set<keyof RootStackParamList>([
-  'FeaturedProducts',
-  'Home',
-  'Search',
-  'History',
-]);
-const HEADER_ACTION_ROUTES = new Set<keyof RootStackParamList>([
-  'FeaturedProducts',
-  'Home',
-  'Search',
-  'History',
-  'Progress',
-  'Alerts',
-  'Trips',
-  'Scanner',
-  'Result',
-  'ProfileDetails',
+
+const NOTIFICATION_BELL_HIDDEN_ROUTES = new Set<keyof RootStackParamList>([
+  'AccountIntro',
+  'NotificationCenter',
+  'ResetPassword',
 ]);
 
 export default function RootNavigator() {
@@ -138,13 +100,21 @@ export default function RootNavigator() {
   const [isHandlingEmailLink, setIsHandlingEmailLink] = useState(false);
   const [hasNavigationReady, setHasNavigationReady] = useState(false);
   const [hasQueuedAuthHydration, setHasQueuedAuthHydration] = useState(false);
-  const [guidedTutorialSession, setGuidedTutorialSession] = useState(
-    getGuidedTutorialSession()
-  );
+  const [hasMeasuredAuthHydration, setHasMeasuredAuthHydration] = useState(false);
   const { t } = useI18n();
   const { colors, typography } = useAppTheme();
   const currentUserId = authSession.user?.id ?? null;
   const isAuthenticated = authSession.status === 'authenticated';
+  const hasStoredUserSnapshot = Boolean(initialBootstrapSnapshot?.authSession.user ?? authSession.user);
+  const isHydratingFirebaseAuth = authSession.status === 'loading';
+  const resolvedAuthState =
+    authSession.status === 'authenticated'
+      ? 'authenticated'
+      : authSession.status === 'guest'
+        ? 'guest'
+        : hasStoredUserSnapshot
+          ? 'cached-authenticated'
+          : 'guest-pending';
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const navigationTheme = {
@@ -196,11 +166,6 @@ export default function RootNavigator() {
     };
   }, [initialBootstrapSnapshot]);
 
-  useEffect(
-    () => subscribeGuidedTutorialSession((nextSession) => setGuidedTutorialSession(nextSession)),
-    []
-  );
-
   useEffect(() => {
     if (!hasNavigationReady || hasQueuedAuthHydration) {
       return;
@@ -215,6 +180,17 @@ export default function RootNavigator() {
       interactionHandle.cancel();
     };
   }, [hasNavigationReady, hasQueuedAuthHydration]);
+
+  useEffect(() => {
+    if (hasMeasuredAuthHydration || isHydratingFirebaseAuth) {
+      return;
+    }
+
+    measurePerformanceTrace('app-start', 'auth-hydration-finish', {
+      resolvedAuthState,
+    });
+    setHasMeasuredAuthHydration(true);
+  }, [hasMeasuredAuthHydration, isHydratingFirebaseAuth, resolvedAuthState]);
 
   useEffect(() => {
     clearSessionResourceCache();
@@ -235,47 +211,7 @@ export default function RootNavigator() {
   }, [authSession.status, currentUserId, hasNavigationReady]);
 
   useEffect(() => {
-    let isMounted = true;
-    let interactionHandle: ReturnType<typeof InteractionManager.runAfterInteractions> | null =
-      null;
-
-    if (
-      !isAuthenticated ||
-      !currentUserId ||
-      !hasNavigationReady ||
-      guidedTutorialSession.status === 'active'
-    ) {
-      return () => {
-        isMounted = false;
-        interactionHandle?.cancel();
-      };
-    }
-
-    void shouldShowWelcomeTutorial(currentUserId)
-      .then((shouldShow) => {
-        if (!isMounted || !shouldShow) {
-          return;
-        }
-
-        interactionHandle = InteractionManager.runAfterInteractions(() => {
-          if (!rootNavigationRef.isReady() || getGuidedTutorialSession().status === 'active') {
-            return;
-          }
-
-          startGuidedTutorial(0);
-          void openGuidedTutorialStep(0);
-        });
-      })
-      .catch(() => null);
-
-    return () => {
-      isMounted = false;
-      interactionHandle?.cancel();
-    };
-  }, [currentUserId, guidedTutorialSession.status, hasNavigationReady, isAuthenticated]);
-
-  useEffect(() => {
-    flushPendingHistoryNavigation(isAuthenticated);
+    flushPendingHistoryNavigation();
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -320,49 +256,8 @@ export default function RootNavigator() {
     };
   }, []);
 
-  const handleOpenPremium = useCallback(() => {
-    if (!rootNavigationRef.isReady() || currentRouteName === 'Premium') {
-      return;
-    }
-
-    rootNavigationRef.navigate('Premium');
-  }, [currentRouteName]);
-
-  const handleOpenProfile = useCallback(() => {
-    if (!rootNavigationRef.isReady() || currentRouteName === 'ProfileDetails') {
-      return;
-    }
-
-    rootNavigationRef.navigate('ProfileDetails');
-  }, [currentRouteName]);
-
-  const handleOpenSettings = useCallback(() => {
-    if (!rootNavigationRef.isReady() || currentRouteName === 'Settings') {
-      return;
-    }
-
-    rootNavigationRef.navigate('Settings');
-  }, [currentRouteName]);
-
-  const handleReplayTutorial = useCallback(() => {
-    stopGuidedTutorial();
-    startGuidedTutorial(0);
-
-    if (!rootNavigationRef.isReady()) {
-      return;
-    }
-
-    if (rootNavigationRef.getCurrentRoute()?.name === 'Settings' && rootNavigationRef.canGoBack()) {
-      rootNavigationRef.goBack();
-    }
-
-    InteractionManager.runAfterInteractions(() => {
-      void openGuidedTutorialStep(0);
-    });
-  }, []);
-
   const handleBottomRoutePress = useCallback(
-    async (route: MainNavigationRoute | 'Scanner') => {
+    async (route: MainNavigationRoute) => {
       if (route === 'Scanner') {
         if (!rootNavigationRef.isReady() || currentRouteName === 'Scanner') {
           return;
@@ -381,21 +276,19 @@ export default function RootNavigator() {
   );
 
   const activeBottomRoute =
+    currentRouteName === 'Account' ||
     currentRouteName === 'Home' ||
-    currentRouteName === 'FeaturedProducts' ||
-    currentRouteName === 'Search' ||
     currentRouteName === 'History' ||
+    currentRouteName === 'Premium' ||
     currentRouteName === 'Scanner'
       ? currentRouteName
       : undefined;
   const shouldShowBottomBar =
-    isAuthenticated &&
     currentRouteName !== null &&
-    BOTTOM_BAR_ROUTES.has(currentRouteName);
-  const overlayFeatureId =
-    currentRouteName === 'Premium'
-      ? (rootNavigationRef.getCurrentRoute()?.params as RootStackParamList['Premium'])?.featureId
-      : undefined;
+    PRIMARY_ROUTES.has(currentRouteName);
+  const shouldShowBootstrapScreen = isHandlingEmailLink;
+  const navigatorKey = shouldShowBootstrapScreen ? 'email-link-bootstrap' : 'app';
+  const initialRouteName: keyof RootStackParamList = 'Home';
 
   return (
     <Suspense fallback={<AuthBootstrapScreen />}>
@@ -403,7 +296,11 @@ export default function RootNavigator() {
         onReady={() => {
           setHasNavigationReady(true);
           syncCurrentRoute();
-          flushPendingHistoryNavigation(isAuthenticated);
+          flushPendingHistoryNavigation();
+          measurePerformanceTrace('app-start', 'first-route-shell-paint', {
+            initialRouteName,
+            resolvedAuthState,
+          });
           measurePerformanceTrace('app-start', 'route-ready');
         }}
         onStateChange={() => {
@@ -419,66 +316,26 @@ export default function RootNavigator() {
       >
         <View style={styles.root}>
           <Stack.Navigator
+            initialRouteName={initialRouteName}
+            key={navigatorKey}
             screenOptions={({ route }) => ({
               animation: 'slide_from_right',
               contentStyle: { backgroundColor: colors.background },
-              headerBackVisible: !HIDE_BACK_ARROW_ROUTES.has(route.name),
-              headerLeft: HIDE_BACK_ARROW_ROUTES.has(route.name) ? () => null : undefined,
-              headerRight: HEADER_ACTION_ROUTES.has(route.name)
-                ? () => (
-                    <View style={styles.headerActions}>
-                      <TutorialTarget
-                        style={styles.headerButtonTarget}
-                        targetId="header-profile-button"
-                      >
-                        <Pressable
-                          accessibilityLabel="Open profile"
-                          accessibilityRole="button"
-                          onPress={() => {
-                            advanceGuidedTutorialFromTarget('header-profile-button');
-                            handleOpenProfile();
-                          }}
-                          style={({ pressed }) => [
-                            styles.headerButton,
-                            pressed && styles.headerButtonPressed,
-                          ]}
-                        >
-                          <Ionicons color={colors.text} name="person-circle-outline" size={20} />
-                        </Pressable>
-                      </TutorialTarget>
-                      <Pressable
-                        accessibilityLabel="Open settings"
-                        accessibilityRole="button"
-                        onPress={handleOpenSettings}
-                        style={({ pressed }) => [
-                          styles.headerButton,
-                          pressed && styles.headerButtonPressed,
-                        ]}
-                      >
-                        <Ionicons color={colors.text} name="settings-outline" size={20} />
-                      </Pressable>
-                      <TutorialTarget
-                        style={styles.headerButtonTarget}
-                        targetId="header-premium-button"
-                      >
-                        <Pressable
-                          accessibilityLabel="Open premium"
-                          accessibilityRole="button"
-                          onPress={() => {
-                            advanceGuidedTutorialFromTarget('header-premium-button');
-                            handleOpenPremium();
-                          }}
-                          style={({ pressed }) => [
-                            styles.headerButton,
-                            pressed && styles.headerButtonPressed,
-                          ]}
-                        >
-                          <Ionicons color={colors.primary} name="sparkles-outline" size={20} />
-                        </Pressable>
-                      </TutorialTarget>
-                    </View>
-                  )
-                : undefined,
+              headerBackVisible: !PRIMARY_ROUTES.has(route.name),
+              headerRight: NOTIFICATION_BELL_HIDDEN_ROUTES.has(route.name)
+                ? undefined
+                : () => (
+                    <NotificationBellButton
+                      onPress={() => {
+                        if (!rootNavigationRef.isReady()) {
+                          return;
+                        }
+
+                        rootNavigationRef.navigate('NotificationCenter');
+                      }}
+                    />
+                  ),
+              headerLeft: PRIMARY_ROUTES.has(route.name) ? () => null : undefined,
               headerShadowVisible: false,
               headerStyle: { backgroundColor: colors.surface },
               headerTintColor: colors.text,
@@ -489,103 +346,18 @@ export default function RootNavigator() {
               },
             })}
           >
-            {authSession.status === 'loading' || isHandlingEmailLink ? (
+            {shouldShowBootstrapScreen ? (
               <Stack.Screen
-                name="Login"
+                name="AccountIntro"
                 component={AuthBootstrapScreen}
                 options={{ headerShown: false }}
               />
-            ) : isAuthenticated ? (
+            ) : (
               <>
                 <Stack.Screen
                   name="Home"
                   component={HomeScreen}
-                  options={{ title: APP_NAME }}
-                />
-                <Stack.Screen
-                  name="FeaturedProducts"
-                  component={FeaturedProductsScreen}
-                  options={{ title: t('Featured') }}
-                />
-                <Stack.Screen
-                  name="Settings"
-                  component={SettingsScreen}
-                  options={{
-                    animation: 'slide_from_bottom',
-                    contentStyle: { backgroundColor: 'transparent' },
-                    headerShown: false,
-                    presentation: 'containedTransparentModal',
-                  }}
-                />
-                <Stack.Screen
-                  name="Alerts"
-                  component={AlertsScreen}
-                  options={{ title: t('Alerts') }}
-                />
-                <Stack.Screen
-                  name="Trips"
-                  component={TripsScreen}
-                  options={{ title: t('Trips') }}
-                />
-                <Stack.Screen
-                  name="Premium"
-                  component={PremiumScreen}
-                  options={{
-                    animation: 'slide_from_bottom',
-                    contentStyle: { backgroundColor: 'transparent' },
-                    headerShown: false,
-                    presentation: 'containedTransparentModal',
-                  }}
-                />
-                <Stack.Screen
-                  name="AccountSettings"
-                  component={AccountSettingsScreen}
-                  options={{ title: t('Account') }}
-                />
-                <Stack.Screen
-                  name="NotificationSettings"
-                  component={NotificationSettingsScreen}
-                  options={{ title: t('Notifications') }}
-                />
-                <Stack.Screen
-                  name="AppearanceSettings"
-                  component={AppearanceSettingsScreen}
-                  options={{ title: t('Appearance') }}
-                />
-                <Stack.Screen
-                  name="HouseholdSettings"
-                  component={HouseholdSettingsScreen}
-                  options={{ title: t('Household') }}
-                />
-                <Stack.Screen
-                  name="SupportSettings"
-                  component={SupportSettingsScreen}
-                  options={{ title: t('Support') }}
-                />
-                <Stack.Screen
-                  name="ProfileDetails"
-                  component={ProfileDetailsScreen}
-                  options={{ title: t('Profile') }}
-                />
-                <Stack.Screen
-                  name="Progress"
-                  component={ProgressScreen}
-                  options={{ title: t('Achievements') }}
-                />
-                <Stack.Screen
-                  name="History"
-                  component={HistoryScreen}
-                  options={{ title: t('History') }}
-                />
-                <Stack.Screen
-                  name="Search"
-                  component={SearchScreen}
-                  options={{ title: t('Search') }}
-                />
-                <Stack.Screen
-                  name="ShelfMode"
-                  component={ShelfModeScreen}
-                  options={{ title: t('Shelf Mode') }}
+                  options={{ title: t('Home') }}
                 />
                 <Stack.Screen
                   name="Scanner"
@@ -593,9 +365,29 @@ export default function RootNavigator() {
                   options={{ title: t('Scan Barcode') }}
                 />
                 <Stack.Screen
-                  name="IngredientOcr"
-                  component={IngredientOcrScreen}
-                  options={{ title: t('Scan Ingredients') }}
+                  name="History"
+                  component={HistoryScreen}
+                  options={{ title: t('History') }}
+                />
+                <Stack.Screen
+                  name="Account"
+                  component={AccountScreen}
+                  options={{ title: t('Account') }}
+                />
+                <Stack.Screen
+                  name="Premium"
+                  component={PremiumScreen}
+                  options={{ title: t('Premium') }}
+                />
+                <Stack.Screen
+                  name="AppearanceSettings"
+                  component={AppearanceSettingsScreen}
+                  options={{ title: t('Appearance') }}
+                />
+                <Stack.Screen
+                  name="SupportSettings"
+                  component={SupportSettingsScreen}
+                  options={{ title: t('Support') }}
                 />
                 <Stack.Screen
                   name="Result"
@@ -606,6 +398,11 @@ export default function RootNavigator() {
                   name="Help"
                   component={HelpScreen}
                   options={{ title: t('Help') }}
+                />
+                <Stack.Screen
+                  name="NotificationCenter"
+                  component={NotificationCenterScreen}
+                  options={{ title: t('Notifications') }}
                 />
                 <Stack.Screen
                   name="PrivacyPolicy"
@@ -622,23 +419,29 @@ export default function RootNavigator() {
                   component={FeedbackScreen}
                   options={{ title: t('Send Feedback') }}
                 />
-              </>
-            ) : (
-              <>
+                {isAuthenticated ? (
+                  <>
+                    <Stack.Screen
+                      name="AccountSettings"
+                      component={AccountSettingsScreen}
+                      options={{ title: t('Account') }}
+                    />
+                    <Stack.Screen
+                      name="NotificationSettings"
+                      component={NotificationSettingsScreen}
+                      options={{ title: t('Notifications') }}
+                    />
+                    <Stack.Screen
+                      name="HouseholdSettings"
+                      component={HouseholdSettingsScreen}
+                      options={{ title: t('Household') }}
+                    />
+                  </>
+                ) : null}
                 <Stack.Screen
                   name="AccountIntro"
                   component={AccountIntroScreen}
                   options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                  name="Login"
-                  component={LoginScreen}
-                  options={{ title: t('Log In') }}
-                />
-                <Stack.Screen
-                  name="SignUp"
-                  component={SignUpScreen}
-                  options={{ title: t('Create Account') }}
                 />
                 <Stack.Screen
                   name="ResetPassword"
@@ -659,30 +462,6 @@ export default function RootNavigator() {
               />
             </View>
           ) : null}
-
-          {currentRouteName === 'Settings' ? (
-            <View pointerEvents="box-none" style={styles.modalOverlay}>
-              <SettingsSheet
-                onClose={() => rootNavigationRef.goBack()}
-                onNavigate={(route) => rootNavigationRef.navigate(route)}
-                onReplayTutorial={handleReplayTutorial}
-              />
-            </View>
-          ) : null}
-
-          {currentRouteName === 'Premium' ? (
-            <View pointerEvents="box-none" style={styles.modalOverlay}>
-              <PremiumSheet
-                featureId={overlayFeatureId}
-                onClose={() => rootNavigationRef.goBack()}
-              />
-            </View>
-          ) : null}
-
-          <GuidedTutorialOverlay
-            currentRouteName={currentRouteName}
-            userId={currentUserId}
-          />
         </View>
       </NavigationContainer>
     </Suspense>
@@ -690,10 +469,12 @@ export default function RootNavigator() {
 }
 
 function AuthBootstrapScreen() {
+  const { t } = useI18n();
+
   return (
     <ScreenLoadingView
-      subtitle="Restoring your account and shopping tools..."
-      title={`Loading ${APP_NAME}`}
+      subtitle={t('Finishing your secure sign-in link...')}
+      title={t('Opening {appName}', { appName: APP_NAME })}
     />
   );
 }
@@ -705,30 +486,6 @@ const createStyles = (colors: ReturnType<typeof useAppTheme>['colors']) =>
       left: 0,
       position: 'absolute',
       right: 0,
-    },
-    headerActions: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    headerButton: {
-      alignItems: 'center',
-      backgroundColor: colors.primaryMuted,
-      borderRadius: 999,
-      height: 36,
-      justifyContent: 'center',
-      width: 36,
-    },
-    headerButtonPressed: {
-      opacity: 0.82,
-    },
-    headerButtonTarget: {
-      height: 36,
-      width: 36,
-    },
-    modalOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      elevation: 30,
-      zIndex: 20,
     },
     root: {
       backgroundColor: colors.background,

@@ -26,8 +26,9 @@ export type EmailPasswordSignUpInput = EmailPasswordLoginInput & {
   passwordConfirmation: string;
 };
 
-export type LoginScreenParams =
+export type AuthScreenParams =
   | {
+      initialMode?: 'login' | 'signup';
       notice?: string;
       prefillEmail?: string;
     }

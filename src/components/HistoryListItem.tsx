@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -44,6 +45,7 @@ function HistoryListItem({
   const gradeTone = getGradeTone(entry.gradeLabel);
   const profile = getDietProfileDefinition(entry.profileId);
   const latestTimelineSummary = entry.productTimeline[0]?.summary ?? null;
+  const hasTimelineUpdate = Boolean(latestTimelineSummary);
 
   return (
     <Pressable
@@ -57,10 +59,30 @@ function HistoryListItem({
         },
       ]}
     >
+      <View
+        style={[
+          styles.toneStrip,
+          { backgroundColor: gradeTone.color },
+        ]}
+      />
       <View style={styles.headerRow}>
-        <Text numberOfLines={2} style={styles.name}>
-          {formatProductName(entry.name)}
-        </Text>
+        <View style={styles.titleWrap}>
+          <Text numberOfLines={2} style={styles.name}>
+            {formatProductName(entry.name)}
+          </Text>
+          <View style={styles.metaChipRow}>
+            <View style={styles.metaChip}>
+              <Text numberOfLines={1} style={styles.metaChipText}>
+                {entry.barcode}
+              </Text>
+            </View>
+            <View style={styles.metaChip}>
+              <Text numberOfLines={1} style={styles.metaChipText}>
+                {t(profile.label)}
+              </Text>
+            </View>
+          </View>
+        </View>
         <View
           style={[
             styles.scoreBadge,
@@ -73,15 +95,21 @@ function HistoryListItem({
         </View>
       </View>
 
-      <Text style={styles.metaText}>
-        {entry.barcode} • {t(profile.label)}
-        {isFavorite ? ` • ${t('Favorite')}` : ''}
-      </Text>
-      <Text style={styles.summaryText}>{t(entry.riskSummary)}</Text>
-      {latestTimelineSummary ? (
-        <Text style={styles.timelineText}>
-          {t('Changed')}: {t(latestTimelineSummary)}
-        </Text>
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <Ionicons color={colors.textMuted} name="sparkles-outline" size={16} />
+          <Text style={styles.summaryLabel}>{t('Main note')}</Text>
+        </View>
+        <Text style={styles.summaryText}>{t(entry.riskSummary)}</Text>
+      </View>
+
+      {hasTimelineUpdate ? (
+        <View style={styles.timelineCard}>
+          <Ionicons color={colors.warning} name="time-outline" size={15} />
+          <Text numberOfLines={2} style={styles.timelineText}>
+            {t('Changed')}: {t(latestTimelineSummary)}
+          </Text>
+        </View>
       ) : null}
 
       <View style={styles.footerRow}>
@@ -108,11 +136,18 @@ function HistoryListItem({
               <Text style={styles.deleteChipText}>{t('Delete')}</Text>
             </Pressable>
           )}
-          <Text style={[styles.gradeText, { color: gradeTone.color }]}>
-            {entry.gradeLabel
-              ? t('Grade {grade}', { grade: entry.gradeLabel })
-              : t('Not Scored')}
-          </Text>
+          <View
+            style={[
+              styles.gradeChip,
+              { backgroundColor: gradeTone.backgroundColor },
+            ]}
+          >
+            <Text style={[styles.gradeText, { color: gradeTone.color }]}>
+              {entry.gradeLabel
+                ? t('Grade {grade}', { grade: entry.gradeLabel })
+                : t('Not Scored')}
+            </Text>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -128,16 +163,17 @@ const createStyles = (
     card: {
       backgroundColor: colors.surface,
       borderColor: colors.border,
-      borderRadius: 20,
+      borderRadius: 24,
       borderWidth: 1,
-      gap: 10,
+      gap: 12,
+      overflow: 'hidden',
       padding: 18,
     },
     deleteChip: {
       backgroundColor: colors.dangerMuted,
       borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
     },
     deleteChipText: {
       color: colors.danger,
@@ -154,6 +190,11 @@ const createStyles = (
       flexDirection: 'row',
       gap: 8,
     },
+    gradeChip: {
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
     gradeText: {
       fontSize: 13,
       fontWeight: '700',
@@ -163,9 +204,23 @@ const createStyles = (
       flexDirection: 'row',
       gap: 12,
     },
-    metaText: {
+    metaChip: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: 999,
+      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    metaChipRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      paddingTop: 2,
+    },
+    metaChipText: {
       color: colors.textMuted,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
     },
     name: {
@@ -180,22 +235,39 @@ const createStyles = (
       minWidth: 74,
       paddingHorizontal: 12,
       paddingVertical: 8,
+      shadowColor: '#000',
+      shadowOffset: { height: 3, width: 0 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
     },
     scoreText: {
       fontSize: 13,
       fontWeight: '800',
       textAlign: 'center',
     },
+    summaryCard: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderRadius: 18,
+      borderWidth: 1,
+      gap: 6,
+      padding: 14,
+    },
+    summaryHeader: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 6,
+    },
+    summaryLabel: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+    },
     summaryText: {
       color: colors.text,
       fontSize: 15,
       lineHeight: 22,
-    },
-    timelineText: {
-      color: colors.warning,
-      fontSize: 13,
-      fontWeight: '600',
-      lineHeight: 19,
     },
     selectionChip: {
       backgroundColor: colors.surface,
@@ -220,5 +292,33 @@ const createStyles = (
     timestampText: {
       color: colors.textMuted,
       fontSize: 13,
+    },
+    timelineCard: {
+      alignItems: 'flex-start',
+      backgroundColor: colors.warningMuted,
+      borderRadius: 16,
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    timelineText: {
+      color: colors.warning,
+      flex: 1,
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 19,
+    },
+    titleWrap: {
+      flex: 1,
+      gap: 8,
+      minWidth: 0,
+    },
+    toneStrip: {
+      bottom: 0,
+      left: 0,
+      position: 'absolute',
+      top: 0,
+      width: 4,
     },
   });

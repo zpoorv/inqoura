@@ -79,30 +79,30 @@ export default function IngredientExplanationModal({
           {lookup?.explanation ? (
             <View style={styles.content}>
               <DetailRow
-                label="What it is used for"
+                label={t('What it is used for')}
                 styles={styles}
                 value={lookup.explanation.usedFor}
               />
               <DetailRow
-                label="Why shoppers notice it"
+                label={t('Why shoppers notice it')}
                 styles={styles}
                 value={lookup.explanation.whyItMatters}
               />
               <DetailRow
-                label="Plain-English take"
+                label={t('Plain-English take')}
                 styles={styles}
                 value={lookup.explanation.plainEnglish}
               />
               {education.profileNotes.length > 0 ? (
                 <DetailRow
-                  label="For your profile"
+                  label={t('For your profile')}
                   styles={styles}
                   value={education.profileNotes.join(' ')}
                 />
               ) : null}
               {education.betterChoiceTip ? (
                 <DetailRow
-                  label="What to look for next time"
+                  label={t('What to look for next time')}
                   styles={styles}
                   value={education.betterChoiceTip}
                 />

@@ -21,18 +21,24 @@ import {
   validateLoginInput,
   validateSignUpInput,
 } from '../utils/authValidation';
+import { trackAnalyticsEvent } from './analyticsService';
+import { recordNonFatalError } from './appMonitoringService';
 import {
   AuthServiceError,
   clearAuthenticatedSession,
   normalizeFirebaseFailure,
-  storeAuthenticatedUser,
 } from './authHelpers';
+import { completeAuthenticatedSession } from './authenticatedSessionService';
 import { getEmailLinkActionSettings } from './emailLinkAuthService';
 import { getFirebaseAuth } from './firebaseAuth';
 import { signOutNativeGoogle } from './googleSignInService';
-import { syncCurrentUserProfileToFirestore } from './userProfileService';
+import {
+  markPerformanceTrace,
+  measurePerformanceTrace,
+} from './performanceTrace';
 
 export async function hydrateAuthSession() {
+  markPerformanceTrace('auth-hydration-start');
   const auth = getFirebaseAuth();
   const firebaseUser = await new Promise<ReturnType<typeof getFirebaseAuth>['currentUser']>(
     (resolve, reject) => {
@@ -58,10 +64,7 @@ export async function hydrateAuthSession() {
     // If reload fails due to connectivity, keep the last Firebase-authenticated user.
   }
 
-  const authUser = await storeAuthenticatedUser(firebaseUser);
-  void syncCurrentUserProfileToFirestore();
-
-  return authUser;
+  return completeAuthenticatedSession(firebaseUser);
 }
 
 export async function signUpWithEmail(input: EmailPasswordSignUpInput) {
@@ -72,6 +75,10 @@ export async function signUpWithEmail(input: EmailPasswordSignUpInput) {
   }
 
   try {
+    markPerformanceTrace('signup-start');
+    trackAnalyticsEvent('signup_started', {
+      provider: 'email',
+    });
     const auth = getFirebaseAuth();
     const credentials = await createUserWithEmailAndPassword(
       auth,
@@ -79,18 +86,36 @@ export async function signUpWithEmail(input: EmailPasswordSignUpInput) {
       input.password
     );
 
-    await updateProfile(credentials.user, {
-      displayName: input.name.trim(),
-    });
-    await sendEmailVerification(
-      credentials.user,
-      getEmailLinkActionSettings()
-    );
+    await Promise.all([
+      updateProfile(credentials.user, {
+        displayName: input.name.trim(),
+      }),
+      sendEmailVerification(
+        credentials.user,
+        getEmailLinkActionSettings()
+      ),
+    ]);
     await signOut(auth);
     await clearAuthenticatedSession();
+    measurePerformanceTrace('signup-start', 'signup-success', {
+      provider: 'email',
+    });
+    trackAnalyticsEvent('signup_succeeded', {
+      provider: 'email',
+    });
 
     return `We created your account and sent a verification email to ${normalizeAuthEmail(input.email)}. Open that email before logging in.`;
   } catch (error) {
+    trackAnalyticsEvent('signup_failed', {
+      code:
+        error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+          ? error.code
+          : 'unknown',
+      provider: 'email',
+    });
+    recordNonFatalError('auth.signup', error, {
+      provider: 'email',
+    });
     normalizeFirebaseFailure(error);
   }
 }
@@ -103,6 +128,10 @@ export async function loginWithEmail(input: EmailPasswordLoginInput) {
   }
 
   try {
+    markPerformanceTrace('email-login-start');
+    trackAnalyticsEvent('login_started', {
+      provider: 'email',
+    });
     const auth = getFirebaseAuth();
     const credentials = await signInWithEmailAndPassword(
       auth,
@@ -110,7 +139,9 @@ export async function loginWithEmail(input: EmailPasswordLoginInput) {
       input.password
     );
 
-    await reload(credentials.user);
+    if (!credentials.user.emailVerified) {
+      await reload(credentials.user);
+    }
 
     if (!credentials.user.emailVerified) {
       await sendEmailVerification(
@@ -120,15 +151,31 @@ export async function loginWithEmail(input: EmailPasswordLoginInput) {
       await signOut(auth);
       await clearAuthenticatedSession();
       throw new AuthServiceError(
-        'Verify your email before logging in. We sent a fresh verification link to your inbox.'
+        'Verify your email before logging in. We sent a fresh verification link to your inbox.',
+        'verification-required'
       );
     }
 
-    const authUser = await storeAuthenticatedUser(credentials.user);
-    await syncCurrentUserProfileToFirestore();
+    const authUser = await completeAuthenticatedSession(credentials.user);
+    measurePerformanceTrace('email-login-start', 'email-login-ready', {
+      provider: 'email',
+    });
+    trackAnalyticsEvent('login_succeeded', {
+      provider: 'email',
+    });
 
     return authUser;
   } catch (error) {
+    trackAnalyticsEvent('login_failed', {
+      code:
+        error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+          ? error.code
+          : 'unknown',
+      provider: 'email',
+    });
+    recordNonFatalError('auth.login', error, {
+      provider: 'email',
+    });
     normalizeFirebaseFailure(error);
   }
 }
@@ -139,15 +186,34 @@ export async function signInWithGoogleIdToken(idToken: string) {
   }
 
   try {
+    markPerformanceTrace('google-login-start');
+    trackAnalyticsEvent('login_started', {
+      provider: 'google',
+    });
     const auth = getFirebaseAuth();
     const credential = GoogleAuthProvider.credential(idToken);
     const credentials = await signInWithCredential(auth, credential);
 
-    const authUser = await storeAuthenticatedUser(credentials.user);
-    await syncCurrentUserProfileToFirestore();
+    const authUser = await completeAuthenticatedSession(credentials.user);
+    measurePerformanceTrace('google-login-start', 'google-login-ready', {
+      provider: 'google',
+    });
+    trackAnalyticsEvent('login_succeeded', {
+      provider: 'google',
+    });
 
     return authUser;
   } catch (error) {
+    trackAnalyticsEvent('login_failed', {
+      code:
+        error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+          ? error.code
+          : 'unknown',
+      provider: 'google',
+    });
+    recordNonFatalError('auth.google_login', error, {
+      provider: 'google',
+    });
     normalizeFirebaseFailure(error);
   }
 }
@@ -177,6 +243,52 @@ export async function requestPasswordReset(email: string) {
     await sendPasswordResetEmail(getFirebaseAuth(), normalizedEmail);
 
     return `If ${normalizedEmail} belongs to an account, Firebase will send a password reset email shortly.`;
+  } catch (error) {
+    normalizeFirebaseFailure(error);
+  }
+}
+
+export async function resendVerificationEmailForLogin(
+  input: EmailPasswordLoginInput
+) {
+  const validationError = validateLoginInput(input);
+
+  if (validationError) {
+    throw new AuthServiceError(validationError);
+  }
+
+  try {
+    const auth = getFirebaseAuth();
+    const credentials = await signInWithEmailAndPassword(
+      auth,
+      normalizeAuthEmail(input.email),
+      input.password
+    );
+
+    try {
+      if (!credentials.user.emailVerified) {
+        await reload(credentials.user);
+      }
+
+      if (credentials.user.emailVerified) {
+        await signOut(auth);
+        await clearAuthenticatedSession();
+        return 'Your email is already verified. Use Log In to continue.';
+      }
+
+      await sendEmailVerification(
+        credentials.user,
+        getEmailLinkActionSettings()
+      );
+      await signOut(auth);
+      await clearAuthenticatedSession();
+
+      return `We sent another verification email to ${normalizeAuthEmail(input.email)}. Open it, then log in again.`;
+    } catch (error) {
+      await signOut(auth).catch(() => null);
+      await clearAuthenticatedSession();
+      normalizeFirebaseFailure(error);
+    }
   } catch (error) {
     normalizeFirebaseFailure(error);
   }

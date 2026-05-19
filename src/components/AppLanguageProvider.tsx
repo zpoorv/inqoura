@@ -15,6 +15,8 @@ import {
   type AppLanguageCode,
 } from '../constants/languages';
 import { translateAppText } from '../constants/translations';
+import { trackAnalyticsEvent } from '../services/analyticsService';
+import { recordNonFatalError } from '../services/appMonitoringService';
 import {
   getCachedAppBootstrapSnapshot,
   loadAppBootstrapSnapshot,
@@ -125,8 +127,18 @@ export default function AppLanguageProvider({ children }: PropsWithChildren) {
       languageOptions: APP_LANGUAGE_DEFINITIONS,
       setLanguageCode: async (nextLanguageCode) => {
         setLanguageCodeState(nextLanguageCode);
-        await saveSavedLanguageCode(nextLanguageCode);
-        await saveCurrentUserPreferences({ languageCode: nextLanguageCode }).catch(() => null);
+        try {
+          await saveSavedLanguageCode(nextLanguageCode);
+          await saveCurrentUserPreferences({ languageCode: nextLanguageCode }).catch(() => null);
+        } catch (error) {
+          recordNonFatalError('language.change', error, {
+            languageCode: nextLanguageCode,
+          });
+          throw error;
+        }
+        trackAnalyticsEvent('language_changed', {
+          languageCode: nextLanguageCode,
+        });
       },
       t: (source, values) => translateAppText(languageCode, source, values),
     }),

@@ -29,6 +29,7 @@ type AppThemeContextValue = {
   appLookId: AppLookId;
   appearanceMode: AppearanceMode;
   colors: ReturnType<typeof getThemeColors>;
+  previewAppLookId: (appLookId: AppLookId) => void;
   typography: AppTypography;
   setAppLookId: (appLookId: AppLookId) => Promise<void>;
   setAppearanceMode: (mode: AppearanceMode) => Promise<void>;
@@ -122,6 +123,9 @@ export default function AppThemeProvider({ children }: PropsWithChildren) {
       appLookId,
       appearanceMode,
       colors: getThemeColors(appearanceMode, appLookId),
+      previewAppLookId: (nextAppLookId) => {
+        setAppLookIdState(nextAppLookId);
+      },
       typography: getThemeTypography(appLookId),
       setAppLookId: async (nextAppLookId) => {
         setAppLookIdState(nextAppLookId);

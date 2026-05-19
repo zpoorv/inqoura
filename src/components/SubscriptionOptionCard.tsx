@@ -34,12 +34,12 @@ export default function SubscriptionOptionCard({
     <View style={[styles.card, isCurrent && styles.cardCurrent]}>
       <View style={styles.headerRow}>
         <View style={styles.copy}>
-          <Text style={styles.title}>{title}</Text>
+          <Text numberOfLines={2} style={styles.title}>{title}</Text>
           <Text style={styles.periodLabel}>{periodLabel}</Text>
         </View>
         <View style={styles.priceBlock}>
-          {badge ? <Text style={styles.badge}>{badge}</Text> : null}
-          <Text style={styles.priceLabel}>{priceLabel}</Text>
+          {badge ? <Text numberOfLines={1} style={styles.badge}>{badge}</Text> : null}
+          <Text numberOfLines={2} style={styles.priceLabel}>{priceLabel}</Text>
         </View>
       </View>
       <Text style={styles.description}>{description}</Text>
@@ -102,7 +102,9 @@ const createStyles = (
     },
     priceBlock: {
       alignItems: 'flex-end',
+      flexShrink: 1,
       gap: 4,
+      minWidth: 88,
     },
     priceLabel: {
       color: colors.text,

@@ -17,10 +17,12 @@ import {
 
 type GoogleSignInButtonProps = {
   label?: string;
+  onSuccess?: () => void;
 };
 
 export default function GoogleSignInButton({
   label = 'Continue with Google',
+  onSuccess,
 }: GoogleSignInButtonProps) {
   const { t } = useI18n();
   const { colors } = useAppTheme();
@@ -51,6 +53,7 @@ export default function GoogleSignInButton({
       }
 
       await signInWithGoogleIdToken(googleResult.idToken);
+      onSuccess?.();
     } catch (error) {
       setErrorMessage(
         error instanceof AuthServiceError

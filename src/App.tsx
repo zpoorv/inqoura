@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
 import { AppState, InteractionManager, LogBox, Platform } from 'react-native';
@@ -9,9 +9,15 @@ import AppLanguageProvider from './components/AppLanguageProvider';
 import AppThemeProvider, { useAppTheme } from './components/AppThemeProvider';
 import { queueHistoryNavigation } from './navigation/navigationRef';
 import RootNavigator from './navigation/RootNavigator';
+import { trackAnalyticsEvent } from './services/analyticsService';
+import { installGlobalErrorMonitoring } from './services/appMonitoringService';
+import { startNotificationCenterRuntime } from './services/notificationCenterRuntime';
 import { loadAppBootstrapSnapshot } from './services/appBootstrapSnapshotService';
 import { startHistoryNotificationRuntime } from './services/historyNotificationRuntime';
-import { markPerformanceTrace } from './services/performanceTrace';
+import {
+  markPerformanceTrace,
+  measurePerformanceTrace,
+} from './services/performanceTrace';
 import { startRevenueCatRuntime } from './services/revenueCatRuntime';
 import { getAuthSession, subscribeAuthSession } from './store';
 
@@ -42,6 +48,7 @@ function AppShell() {
   const { appearanceMode } = useAppTheme();
   const [authSession, setAuthSession] = useState(getAuthSession());
   const [hasCompletedFirstPaint, setHasCompletedFirstPaint] = useState(false);
+  const hasTrackedAppOpenRef = useRef(false);
 
   useEffect(() => {
     const applySystemChrome = async () => {
@@ -82,14 +89,48 @@ function AppShell() {
   }, []);
 
   useEffect(() => {
+    const cleanup = installGlobalErrorMonitoring();
+    return cleanup;
+  }, []);
+
+  useEffect(() => {
     const frameHandle = requestAnimationFrame(() => {
       setHasCompletedFirstPaint(true);
+      measurePerformanceTrace('app-start', 'first-shell-paint');
     });
 
     return () => {
       cancelAnimationFrame(frameHandle);
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasCompletedFirstPaint || hasTrackedAppOpenRef.current) {
+      return;
+    }
+
+    hasTrackedAppOpenRef.current = true;
+    trackAnalyticsEvent('app_open', {
+      authState: authSession.status,
+      platform: Platform.OS,
+    });
+  }, [authSession.status, hasCompletedFirstPaint]);
+
+  useEffect(() => {
+    if (!hasCompletedFirstPaint) {
+      return;
+    }
+
+    let cleanup: (() => void) | null = null;
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      cleanup = startNotificationCenterRuntime();
+    });
+
+    return () => {
+      interactionHandle.cancel();
+      cleanup?.();
+    };
+  }, [hasCompletedFirstPaint]);
 
   useEffect(() => {
     if (authSession.status !== 'authenticated' || !hasCompletedFirstPaint) {

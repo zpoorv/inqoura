@@ -4,11 +4,6 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useI18n } from './AppLanguageProvider';
 import { useAppTheme } from './AppThemeProvider';
-import TutorialTarget from './TutorialTarget';
-import {
-  advanceGuidedTutorialFromTarget,
-  type GuidedTutorialTargetId,
-} from '../services/guidedTutorialService';
 
 type QuestActionCardProps = {
   badge?: string;
@@ -16,7 +11,6 @@ type QuestActionCardProps = {
   onPress: () => void;
   subtitle: string;
   title: string;
-  tutorialTargetId?: GuidedTutorialTargetId;
 };
 
 export default function QuestActionCard({
@@ -25,41 +19,39 @@ export default function QuestActionCard({
   onPress,
   subtitle,
   title,
-  tutorialTargetId,
 }: QuestActionCardProps) {
   const { t } = useI18n();
   const { colors, typography } = useAppTheme();
   const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
-  const handlePress = () => {
-    if (tutorialTargetId) {
-      advanceGuidedTutorialFromTarget(tutorialTargetId);
-    }
-
-    onPress();
-  };
-
   return (
-    <TutorialTarget targetId={tutorialTargetId}>
-      <Pressable
-        accessibilityRole="button"
-        android_ripple={{ color: colors.primaryMuted }}
-        onPress={handlePress}
-        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      >
-        <View style={styles.iconWrap}>
-          <Ionicons color={colors.surface} name={icon} size={24} />
-        </View>
-        <View style={styles.copy}>
-          {badge ? <Text style={styles.badge}>{t(badge)}</Text> : null}
-          <Text style={styles.title}>{t(title)}</Text>
-          <Text style={styles.subtitle}>{t(subtitle)}</Text>
-        </View>
-        <View style={styles.chevronWrap}>
-          <Ionicons color={colors.primary} name="chevron-forward" size={20} />
-        </View>
-      </Pressable>
-    </TutorialTarget>
+    <Pressable
+      accessibilityRole="button"
+      android_ripple={{ color: colors.primaryMuted }}
+      onPress={onPress}
+      hitSlop={6}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
+      <View style={styles.iconWrap}>
+        <Ionicons color={colors.surface} name={icon} size={24} />
+      </View>
+      <View style={styles.copy}>
+        {badge ? (
+          <Text numberOfLines={1} style={styles.badge}>
+            {t(badge)}
+          </Text>
+        ) : null}
+        <Text numberOfLines={2} style={styles.title}>
+          {t(title)}
+        </Text>
+        <Text numberOfLines={3} style={styles.subtitle}>
+          {t(subtitle)}
+        </Text>
+      </View>
+      <View style={styles.chevronWrap}>
+        <Ionicons color={colors.primary} name="chevron-forward" size={20} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -102,6 +94,7 @@ const createStyles = (
     copy: {
       flex: 1,
       gap: 2,
+      minWidth: 0,
     },
     iconWrap: {
       alignItems: 'center',

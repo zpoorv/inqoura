@@ -1,6 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useI18n } from './AppLanguageProvider';
+import { useAppTheme } from './AppThemeProvider';
 import type { AppColors } from '../constants/theme';
 
 export type OptionPickerItem<T extends string> = {
@@ -32,7 +33,8 @@ export default function OptionPickerModal<T extends string>({
   visible,
 }: OptionPickerModalProps<T>) {
   const { t } = useI18n();
-  const styles = createStyles(colors);
+  const { typography } = useAppTheme();
+  const styles = createStyles(colors, typography);
 
   return (
     <Modal animationType="fade" onRequestClose={onRequestClose} transparent visible={visible}>
@@ -83,7 +85,10 @@ export default function OptionPickerModal<T extends string>({
   );
 }
 
-const createStyles = (colors: AppColors) =>
+const createStyles = (
+  colors: AppColors,
+  typography: ReturnType<typeof useAppTheme>['typography']
+) =>
   StyleSheet.create({
     applyButton: {
       alignItems: 'center',
@@ -95,11 +100,13 @@ const createStyles = (colors: AppColors) =>
     },
     applyButtonText: {
       color: colors.surface,
+      fontFamily: typography.accentFontFamily,
       fontSize: 15,
       fontWeight: '800',
     },
     disabledLabel: {
       color: colors.warning,
+      fontFamily: typography.accentFontFamily,
       fontSize: 12,
       fontWeight: '700',
       marginTop: 8,
@@ -121,6 +128,7 @@ const createStyles = (colors: AppColors) =>
     },
     optionDescription: {
       color: colors.textMuted,
+      fontFamily: typography.bodyFontFamily,
       fontSize: 13,
       lineHeight: 20,
       marginTop: 6,
@@ -130,6 +138,7 @@ const createStyles = (colors: AppColors) =>
     },
     optionTitle: {
       color: colors.text,
+      fontFamily: typography.headingFontFamily,
       fontSize: 16,
       fontWeight: '800',
     },
@@ -154,6 +163,7 @@ const createStyles = (colors: AppColors) =>
     },
     title: {
       color: colors.text,
+      fontFamily: typography.displayFontFamily,
       fontSize: 22,
       fontWeight: '800',
       marginBottom: 18,

@@ -1,0 +1,66 @@
+import { Alert } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import { useI18n } from '../../components/AppLanguageProvider';
+import FeaturePageLayout from '../../components/FeaturePageLayout';
+import SettingsRow from '../../components/SettingsRow';
+import SettingsSection from '../../components/SettingsSection';
+import { describeAdMobError, openMobileAdsInspector } from '../../services/adMobService';
+import type { RootStackParamList } from '../../navigation/types';
+import { AuthServiceError } from '../../services/authHelpers';
+
+type SupportSettingsScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  'SupportSettings'
+>;
+
+export default function SupportSettingsScreen({
+  navigation,
+}: SupportSettingsScreenProps) {
+  const { t } = useI18n();
+  const handleOpenAdInspector = async () => {
+    try {
+      const didOpen = await openMobileAdsInspector();
+
+      if (!didOpen) {
+        Alert.alert(
+          t('Ad Inspector unavailable'),
+          t('Ad Inspector is only available on Android and iOS builds.')
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        t('Ad Inspector unavailable'),
+        error instanceof AuthServiceError ? t(error.message) : t(describeAdMobError(error))
+      );
+    }
+  };
+
+  return (
+    <FeaturePageLayout
+      eyebrow={t('Support')}
+      subtitle={t('Help, privacy, feedback, and about live here.')}
+      title={t('Support settings')}
+    >
+      <SettingsSection title={t('Support and legal')}>
+        <SettingsRow onPress={() => navigation.navigate('Help')} title={t('Help')} />
+        <SettingsRow
+          onPress={() => navigation.navigate('PrivacyPolicy')}
+          title={t('Privacy Policy')}
+        />
+        <SettingsRow onPress={() => navigation.navigate('About')} title={t('About')} />
+        <SettingsRow
+          onPress={() => navigation.navigate('Feedback')}
+          title={t('Send Feedback')}
+        />
+        {__DEV__ ? (
+          <SettingsRow
+            onPress={() => void handleOpenAdInspector()}
+            subtitle={t("Check rewarded and native placements with Google's debug panel.")}
+            title={t('Ad Inspector')}
+          />
+        ) : null}
+      </SettingsSection>
+    </FeaturePageLayout>
+  );
+}

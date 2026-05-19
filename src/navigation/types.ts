@@ -1,27 +1,21 @@
 import type { DietProfileId } from '../constants/dietProfiles';
-import type { LoginScreenParams } from '../models/auth';
+import type { AuthScreenParams } from '../models/auth';
 import type { PremiumFeatureId } from '../models/premium';
 import type { ResolvedProduct } from '../types/product';
 import type { ScanResultSource } from '../types/scanner';
 
 export type RootStackParamList = {
   About: undefined;
-  AccountIntro: undefined;
+  Account: undefined;
+  AccountIntro: AuthScreenParams;
   AccountSettings: undefined;
-  Alerts: undefined;
   AppearanceSettings: undefined;
   Feedback: undefined;
-  FeaturedProducts: undefined;
   Help: undefined;
   Home: undefined;
   History: undefined;
   HouseholdSettings: undefined;
-  Login: LoginScreenParams;
-  IngredientOcr:
-    | {
-        profileId?: DietProfileId;
-      }
-    | undefined;
+  NotificationCenter: undefined;
   NotificationSettings: undefined;
   PrivacyPolicy: undefined;
   Premium:
@@ -29,20 +23,13 @@ export type RootStackParamList = {
         featureId?: PremiumFeatureId;
       }
     | undefined;
-  Progress: undefined;
-  ProfileDetails: undefined;
   ResetPassword: undefined;
-  Search: undefined;
   Scanner:
     | {
         profileId?: DietProfileId;
       }
     | undefined;
-  ShelfMode: undefined;
-  Settings: undefined;
-  SignUp: undefined;
   SupportSettings: undefined;
-  Trips: undefined;
   Result: {
     barcode: string;
     barcodeType?: string | null;

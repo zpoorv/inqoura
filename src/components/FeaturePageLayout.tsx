@@ -1,19 +1,16 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from './AppLanguageProvider';
 import { useAppTheme } from './AppThemeProvider';
 import ScreenReveal from './ScreenReveal';
-import TutorialTarget from './TutorialTarget';
-import type { GuidedTutorialTargetId } from '../services/guidedTutorialService';
 
 type FeaturePageLayoutProps = PropsWithChildren<{
   eyebrow?: string;
   footerInset?: number;
   header?: ReactNode;
   subtitle: string;
-  tutorialTargetId?: GuidedTutorialTargetId;
   title: string;
 }>;
 
@@ -23,26 +20,29 @@ export default function FeaturePageLayout({
   footerInset = 132,
   header,
   subtitle,
-  tutorialTargetId,
   title,
 }: FeaturePageLayoutProps) {
   const { t } = useI18n();
   const { colors, typography } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = createStyles(colors, typography);
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: footerInset }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerInset + Math.max(insets.bottom, 8) },
+        ]}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <TutorialTarget targetId={tutorialTargetId}>
-          <ScreenReveal style={styles.hero}>
-            {eyebrow ? <Text style={styles.eyebrow}>{t(eyebrow)}</Text> : null}
-            <Text style={styles.title}>{t(title)}</Text>
-            <Text style={styles.subtitle}>{t(subtitle)}</Text>
-          </ScreenReveal>
-        </TutorialTarget>
+        <ScreenReveal style={styles.hero}>
+          {eyebrow ? <Text style={styles.eyebrow}>{t(eyebrow)}</Text> : null}
+          <Text style={styles.title}>{t(title)}</Text>
+          <Text style={styles.subtitle}>{t(subtitle)}</Text>
+        </ScreenReveal>
         {header}
         {children}
       </ScrollView>
@@ -56,6 +56,7 @@ const createStyles = (
 ) =>
   StyleSheet.create({
     content: {
+      flexGrow: 1,
       gap: 18,
       padding: 24,
     },

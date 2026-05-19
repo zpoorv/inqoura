@@ -1,3 +1,4 @@
+import { SEARCH_NUMERIC_QUERY_PATTERN } from '../constants/search';
 import {
   fetchProductByBarcode,
 } from './openFoodFacts';
@@ -27,6 +28,7 @@ import {
 } from './productCatalogService';
 import { loadCommonProductByBarcode } from './commonProductStorage';
 import { isLikelyNetworkError } from '../utils/networkErrors';
+import { normalizeBarcode } from '../utils/barcode';
 
 export class ProductLookupError extends Error {
   kind: 'network' | 'service';
@@ -397,9 +399,44 @@ async function performProductLookup(
 }
 
 export async function searchResolvedProducts(query: string) {
-  const products = await searchStoredProductRecords(query);
-
-  return products
+  const normalizedQuery = normalizeBarcode(query);
+  const storedProducts = await searchStoredProductRecords(query);
+  const resolvedProducts = storedProducts
     .map((product) => applyProductOverride(null, product))
     .filter((product): product is ResolvedProduct => Boolean(product));
+  const seenCodes = new Set<string>();
+  const dedupedProducts: ResolvedProduct[] = [];
+
+  resolvedProducts.forEach((product) => {
+    const code = product.code || product.barcode;
+
+    if (seenCodes.has(code)) {
+      return;
+    }
+
+    seenCodes.add(code);
+    dedupedProducts.push(product);
+  });
+
+  const hasExactStoredMatch = dedupedProducts.some(
+    (product) => product.barcode === normalizedQuery || product.code === normalizedQuery
+  );
+
+  if (SEARCH_NUMERIC_QUERY_PATTERN.test(normalizedQuery) && !hasExactStoredMatch) {
+    try {
+      const liveProduct = await resolveProductByBarcode(normalizedQuery);
+
+      if (liveProduct) {
+        const liveProductCode = liveProduct.code || liveProduct.barcode;
+
+        if (!seenCodes.has(liveProductCode)) {
+          dedupedProducts.unshift(liveProduct);
+        }
+      }
+    } catch {
+      // Keep shared catalog results visible even when the live barcode lookup fails.
+    }
+  }
+
+  return dedupedProducts;
 }

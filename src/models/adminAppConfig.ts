@@ -1,6 +1,5 @@
 export type AdminAppConfig = {
   enableHistory: boolean;
-  enableIngredientOcr: boolean;
   enableManualBarcodeEntry: boolean;
   enableRuleBasedSuggestions: boolean;
   homeAnnouncementBody: string | null;

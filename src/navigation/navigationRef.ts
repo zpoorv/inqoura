@@ -1,26 +1,25 @@
 import { StackActions, createNavigationContainerRef } from '@react-navigation/native';
 
-import { getAuthSession } from '../store';
 import type { RootStackParamList } from './types';
 
 export const rootNavigationRef = createNavigationContainerRef<RootStackParamList>();
 
 export type MainNavigationRoute =
-  | 'FeaturedProducts'
-  | 'History'
+  | 'Account'
   | 'Home'
-  | 'Search'
-  | 'Settings';
+  | 'History'
+  | 'Premium'
+  | 'Scanner';
 
 let pendingHistoryNavigation = false;
 
 export function queueHistoryNavigation() {
   pendingHistoryNavigation = true;
-  flushPendingHistoryNavigation(getAuthSession().status === 'authenticated');
+  flushPendingHistoryNavigation();
 }
 
-export function flushPendingHistoryNavigation(isAuthenticated: boolean) {
-  if (!pendingHistoryNavigation || !isAuthenticated || !rootNavigationRef.isReady()) {
+export function flushPendingHistoryNavigation() {
+  if (!pendingHistoryNavigation || !rootNavigationRef.isReady()) {
     return;
   }
 

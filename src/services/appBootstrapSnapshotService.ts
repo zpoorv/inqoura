@@ -77,7 +77,7 @@ export async function loadAppBootstrapSnapshot() {
       appearanceMode,
       authSession: storedUser
         ? {
-            status: 'authenticated',
+            status: 'loading',
             user: storedUser,
           }
         : {

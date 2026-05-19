@@ -352,17 +352,23 @@ async function resolveUserProfile(baseProfile: UserProfile) {
 }
 
 export async function loadUserProfile() {
-  const defaultProfile = buildDefaultProfile();
+  const authUser = getAuthSession().user;
 
-  if (!defaultProfile) {
+  if (!authUser) {
     return null;
   }
 
+  return primeUserProfileFromAuthUser(authUser);
+}
+
+export async function primeUserProfileFromAuthUser(authUser: AuthUser) {
+  const defaultProfile = buildDefaultProfileFromAuthUser(authUser);
   const localProfile = await loadStoredUserProfile(defaultProfile.uid);
   const resolvedProfile: UserProfile = {
     ...defaultProfile,
     ...(localProfile ?? {}),
     email: defaultProfile.email,
+    name: localProfile?.name?.trim() || defaultProfile.name,
     uid: defaultProfile.uid,
   };
 

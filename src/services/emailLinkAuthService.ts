@@ -10,8 +10,8 @@ import { normalizeAuthEmail, validateEmailAddress } from '../utils/authValidatio
 import {
   AuthServiceError,
   normalizeFirebaseFailure,
-  storeAuthenticatedUser,
 } from './authHelpers';
+import { completeAuthenticatedSession } from './authenticatedSessionService';
 import {
   clearPendingEmailLinkAddress,
   loadPendingEmailLinkAddress,
@@ -19,7 +19,6 @@ import {
 } from './authStorage';
 import { getFirebaseAuth } from './firebaseAuth';
 import { getFirebaseAuthLinkUrl } from './firebaseApp';
-import { syncCurrentUserProfileToFirestore } from './userProfileService';
 
 export function getEmailLinkActionSettings(): ActionCodeSettings {
   return {
@@ -81,10 +80,7 @@ export async function completeEmailLinkSignIn(url: string) {
 
     await clearPendingEmailLinkAddress();
 
-    const authUser = await storeAuthenticatedUser(credentials.user);
-    await syncCurrentUserProfileToFirestore();
-
-    return authUser;
+    return completeAuthenticatedSession(credentials.user);
   } catch (error) {
     await clearPendingEmailLinkAddress();
     normalizeFirebaseFailure(error);

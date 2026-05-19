@@ -5,7 +5,6 @@ import { getFirebaseAppInstance } from './firebaseApp';
 
 const DEFAULT_ADMIN_APP_CONFIG: AdminAppConfig = {
   enableHistory: true,
-  enableIngredientOcr: true,
   enableManualBarcodeEntry: true,
   enableRuleBasedSuggestions: true,
   homeAnnouncementBody: null,

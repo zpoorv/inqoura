@@ -29,13 +29,6 @@ export default function PremiumGuidanceCard({
             {t('Main concern: {topConcern}', { topConcern: guidance.topConcern })}
           </Text>
         ) : null}
-        {guidance.confidenceAssist ? (
-          <Text style={styles.assist}>
-            {t('OCR assist: {confidenceAssist}', {
-              confidenceAssist: guidance.confidenceAssist,
-            })}
-          </Text>
-        ) : null}
       </View>
     </View>
   );
@@ -46,12 +39,6 @@ const createStyles = (
   typography: ReturnType<typeof useAppTheme>['typography']
 ) =>
   StyleSheet.create({
-    assist: {
-      color: colors.warning,
-      fontFamily: typography.bodyFontFamily,
-      fontSize: 14,
-      lineHeight: 21,
-    },
     body: {
       color: colors.text,
       fontFamily: typography.bodyFontFamily,

@@ -84,6 +84,8 @@ const createStyles = (
       fontSize: 16,
       minHeight: 54,
       paddingHorizontal: 16,
+      paddingVertical: 14,
+      textAlignVertical: 'center',
     },
     inputError: {
       borderColor: colors.danger,

@@ -2,15 +2,20 @@ import type { User } from 'firebase/auth';
 
 import type { AuthSession, AuthUser } from '../models/auth';
 import { setAuthSession } from '../store/authSessionStore';
+import { resetAppBootstrapSnapshot } from './appBootstrapSnapshotService';
 import {
+  clearPendingEmailLinkAddress,
   clearStoredAuthSessionUser,
   saveStoredAuthSessionUser,
 } from './authStorage';
 
 export class AuthServiceError extends Error {
-  constructor(message: string) {
+  code: string | null;
+
+  constructor(message: string, code: string | null = null) {
     super(message);
     this.name = 'AuthServiceError';
+    this.code = code;
   }
 }
 
@@ -47,14 +52,22 @@ export async function setStoredAuthSession(authUser: AuthUser) {
     user: authUser,
   };
 
-  await saveStoredAuthSessionUser(authUser);
+  await Promise.all([
+    saveStoredAuthSessionUser(authUser),
+    clearPendingEmailLinkAddress(),
+  ]);
+  resetAppBootstrapSnapshot();
   setAuthSession(authSession);
 
   return authUser;
 }
 
 export async function clearAuthenticatedSession() {
-  await clearStoredAuthSessionUser();
+  await Promise.all([
+    clearStoredAuthSessionUser(),
+    clearPendingEmailLinkAddress(),
+  ]);
+  resetAppBootstrapSnapshot();
   setAuthSession({ status: 'guest', user: null });
 }
 
@@ -93,5 +106,10 @@ function mapAuthError(error: unknown) {
 }
 
 export function normalizeFirebaseFailure(error: unknown): never {
-  throw new AuthServiceError(mapAuthError(error));
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+      ? error.code
+      : null;
+
+  throw new AuthServiceError(mapAuthError(error), code);
 }

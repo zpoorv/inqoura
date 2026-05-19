@@ -13,4 +13,14 @@ if (!Array.prototype.toReversed) {
 
 const { getDefaultConfig } = require('expo/metro-config');
 
-module.exports = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname);
+
+config.resolver.blockList = [
+  /android\/build\/.*/,
+  /android\/app\/build\/.*/,
+  /android\/app\/\.cxx\/.*/,
+  /node_modules\/.*\/android\/build\/.*/,
+  /node_modules\/.*\/android\/\.cxx\/.*/,
+];
+
+module.exports = config;

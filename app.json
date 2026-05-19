@@ -2,9 +2,9 @@
   "expo": {
     "name": "Inqoura",
     "slug": "inqoura",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
-    "icon": "./icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "inqoura",
     "userInterfaceStyle": "automatic",
     "androidNavigationBar": {
@@ -20,8 +20,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./icon.png"
+        "backgroundColor": "#151515",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "blockedPermissions": [
@@ -54,11 +56,11 @@
         "android.permission.CAMERA"
       ],
       "package": "com.zpoorv.inqoura",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "output": "static",
-      "favicon": "./icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [

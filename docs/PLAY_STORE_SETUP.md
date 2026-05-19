@@ -8,9 +8,14 @@
 - Firestore connected for profile, history, and admin override data
 - Expo dev-client Android project generated
 - `eas.json` added with preview and production Android build profiles
-- Android `versionCode` set to `1`
+- Android release metadata managed in `app.json`
 - Local release signing now supports `android/keystore.properties`
 - Local Android App Bundle build script: `npm run android:aab`
+
+## Canonical launch docs
+
+- Launch checklist: `docs/ANDROID_PLAY_RELEASE_CHECKLIST.md`
+- Launch runbook: `docs/ANDROID_PLAY_LAUNCH_RUNBOOK.md`
 
 ## Current backend usage
 

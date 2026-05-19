@@ -55,6 +55,15 @@ export function hasPremiumFeatureAccess(
   return entitlement.isPremium && entitlement.features.includes(featureId);
 }
 
+export function primePremiumEntitlementFromProfile(
+  profile: Pick<UserProfile, 'plan' | 'role' | 'updatedAt'> | null
+) {
+  const entitlement = buildPremiumEntitlement(profile);
+  setPremiumSession(entitlement);
+  primeSessionResourceCache(SESSION_CACHE_KEYS.premiumEntitlement, entitlement);
+  return entitlement;
+}
+
 function resolveTrustedRole(
   remoteProfile: UserProfile | null,
   claims: Awaited<ReturnType<typeof loadCurrentUserTrustedClaims>>
