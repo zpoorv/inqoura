@@ -8,82 +8,77 @@ export const PREMIUM_FEATURE_COPY: Record<
 > = {
   'deeper-result-guidance': {
     description:
-      'See a clearer breakdown of why a score landed where it did, what matters most, and how often the product makes sense.',
+      'See a clearer breakdown of what most affected a product score, what matters most, and how often the product fits.',
     shortLabel: 'Deeper Guidance',
     title: 'Deeper result guidance',
   },
   'advanced-ocr-recovery': {
     description:
-      'Use a stronger ingredient-photo recovery pass with better OCR cleanup and more specific help when a label scan looks weak.',
-    shortLabel: 'Smarter OCR Help',
-    title: 'Smarter OCR help',
+      'Premium is focused on richer product guidance, sharing, and personalization in the current app experience.',
+    shortLabel: 'Premium Access',
+    title: 'Premium membership',
   },
   'ingredient-ocr': {
     description:
-      'Remove the 5-per-day OCR cap, skip rewarded-ad unlocks, and keep ingredient label scanning ready whenever you need it.',
-    shortLabel: 'Unlimited OCR',
-    title: 'Unlimited ingredient OCR',
+      'Premium is currently centered on deeper result guidance, richer sharing, and personalization across the main app flow.',
+    shortLabel: 'Premium Access',
+    title: 'Premium membership',
   },
   'weekly-history-insights': {
     description:
-      'Get weekly shopping recaps, stronger scan patterns, and a clearer sense of what is helping or hurting your usual picks.',
-    shortLabel: 'Weekly Insights',
-    title: 'Weekly shopping insights',
+      'Premium keeps richer scan-based insight tools available as the history experience continues to grow.',
+    shortLabel: 'History Insights',
+    title: 'History insight tools',
   },
   'favorites-and-comparisons': {
     description:
-      'Save products you buy often, keep comparison slots ready, and make repeat shopping decisions faster.',
-    shortLabel: 'Shelf Compare',
-    title: 'Favorites and comparison slots',
+      'Premium focuses on deeper guidance, richer history signals, and better sharing in the current release.',
+    shortLabel: 'Premium Access',
+    title: 'Premium membership',
   },
   'history-personalization': {
     description:
-      'See expanded shopping patterns, repeat-buy signals, and products worth replacing first.',
+      'Unlock richer scan patterns, repeat-buy signals, and stronger shopping nudges in your history settings.',
     shortLabel: 'History Insights',
     title: 'History personalization',
   },
   'ad-free-experience': {
     description:
-      'Premium users never need to watch rewarded ads to continue scanning ingredient labels.',
-    shortLabel: 'No Ads',
-    title: 'Ad-free scanning',
+      'Premium keeps the experience centered on product guidance, sharing, and personalization tools.',
+    shortLabel: 'Premium Access',
+    title: 'Premium membership',
   },
   'share-result-card': {
     description:
-      'Unlock five extra share-card styles and unlimited result-card exports for social posting.',
+      'Unlock five extra share-card styles and remove the daily export cap when you want to share results.',
     shortLabel: 'Share Styles',
     title: 'Premium share-card styles',
   },
   'app-look-presets': {
     description:
-      'Choose from extra premium app looks to personalize the feel of your Inqoura account.',
+      'Choose from five extra premium app looks to personalize how Inqoura feels across the app.',
     shortLabel: 'UI Looks',
     title: 'Premium UI looks',
   },
 };
 
 export const PREMIUM_FREE_PLAN_FEATURES = [
-  'Barcode scanning with the full trust score and ingredient highlights.',
-  'Basic scan history with your best picks, repeat buys, and items to rethink.',
-  'Ingredient photo scans with a 5-per-day cap plus rewarded unlocks.',
-  'One share-card style and the core shopping flow.',
+  'Barcode scanning with trust score, product verdict, and ingredient highlights.',
+  'Saved history with reopen, search, and cleanup tools.',
+  'One share-card style with 5 result-card exports per day.',
+  'Theme, language, and core account settings.',
 ];
 
 export const PREMIUM_PRIMARY_VALUE_FEATURES = [
-  'Smarter OCR help when ingredient photos are blurry, partial, or noisy.',
-  'Deeper result guidance that explains what most affected the score.',
-  'Weekly shopping insights and stronger repeat-buy habit tracking.',
-  'Healthier swap guidance that tells you what to look for next time.',
-  'Deeper progress history for your weekly momentum, streaks, and calm badge milestones.',
-  'Shelf Mode extras that make in-store comparisons faster and clearer.',
-  'Ad-free ingredient scans with unlimited daily OCR use.',
+  'Deeper result guidance that explains what most affected a score.',
+  'Unlimited share-card exports with five extra premium share-card styles.',
+  'Premium history insights and stronger scan-based nudges.',
+  'Five extra app looks in appearance settings.',
 ];
 
 export const PREMIUM_BONUS_FEATURES = [
-  'Five extra share-card styles.',
-  'Five extra app looks.',
-  'Saved favorites and ready-to-open comparison slots.',
-  'Richer achievement breakdowns and share-ready progress moments.',
+  'Plan restore and billing tools in one place.',
+  'Premium access synced across your signed-in devices.',
 ];
 
 export const PREMIUM_PRICE_PREVIEW_COPY =

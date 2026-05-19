@@ -295,7 +295,7 @@ function PremiumContent({ featureId }: PremiumContentProps) {
           </ScreenReveal>
           <ScreenReveal delayMs={90}>
             <View style={styles.featureCard}>
-              {PREMIUM_PRIMARY_VALUE_FEATURES.slice(0, 3).map((item) => (
+              {PREMIUM_PRIMARY_VALUE_FEATURES.map((item) => (
                 <View key={item} style={styles.featureRow}>
                   <View style={styles.featureDot} />
                   <Text style={styles.featureText}>{t(item)}</Text>
