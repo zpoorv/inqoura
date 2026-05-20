@@ -1,13 +1,13 @@
 {
   "name": "inqoura",
   "main": "expo/AppEntry",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "scripts": {
     "start": "expo start",
     "admin-panel": "node admin_panel/server.mjs",
     "android": "expo run:android",
-    "android:aab": "cd android && NODE_ENV=production ./gradlew bundleRelease",
-    "android:apk:release": "cd android && NODE_ENV=production ./gradlew assembleRelease",
+    "android:aab": "cd android && NODE_ENV=production INQOURA_STORE_BUILD=1 ./gradlew bundleRelease",
+    "android:apk:release": "cd android && NODE_ENV=production INQOURA_STORE_BUILD=1 ./gradlew assembleRelease",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "search:index": "node scripts/build_search_indices.mjs",

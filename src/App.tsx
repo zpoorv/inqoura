@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import * as NavigationBar from 'expo-navigation-bar';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, InteractionManager, LogBox, Platform } from 'react-native';
+import { InteractionManager, LogBox, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -49,39 +48,6 @@ function AppShell() {
   const [authSession, setAuthSession] = useState(getAuthSession());
   const [hasCompletedFirstPaint, setHasCompletedFirstPaint] = useState(false);
   const hasTrackedAppOpenRef = useRef(false);
-
-  useEffect(() => {
-    const applySystemChrome = async () => {
-      if (Platform.OS !== 'android') {
-        return;
-      }
-
-      try {
-        await NavigationBar.setVisibilityAsync('hidden');
-      } catch {
-        // Ignore device-specific navigation bar limitations.
-      }
-    };
-
-    void applySystemChrome();
-
-    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        void applySystemChrome();
-      }
-    });
-    const navigationBarSubscription =
-      Platform.OS === 'android'
-        ? NavigationBar.addVisibilityListener(() => {
-            void applySystemChrome();
-          })
-        : null;
-
-    return () => {
-      appStateSubscription.remove();
-      navigationBarSubscription?.remove();
-    };
-  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeAuthSession(setAuthSession);
@@ -163,7 +129,7 @@ function AppShell() {
 
   return (
     <>
-      <StatusBar hidden style={appearanceMode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={appearanceMode === 'dark' ? 'light' : 'dark'} />
       <RootNavigator />
     </>
   );
