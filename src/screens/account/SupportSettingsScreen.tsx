@@ -5,7 +5,11 @@ import { useI18n } from '../../components/AppLanguageProvider';
 import FeaturePageLayout from '../../components/FeaturePageLayout';
 import SettingsRow from '../../components/SettingsRow';
 import SettingsSection from '../../components/SettingsSection';
-import { describeAdMobError, openMobileAdsInspector } from '../../services/adMobService';
+import {
+  describeAdMobError,
+  openMobileAdsInspector,
+  showAdConsentPrivacyOptions,
+} from '../../services/adMobService';
 import type { RootStackParamList } from '../../navigation/types';
 import { AuthServiceError } from '../../services/authHelpers';
 
@@ -47,6 +51,20 @@ export default function SupportSettingsScreen({
         <SettingsRow
           onPress={() => navigation.navigate('PrivacyPolicy')}
           title={t('Privacy Policy')}
+        />
+        <SettingsRow
+          onPress={() => {
+            void showAdConsentPrivacyOptions().then((didShow) => {
+              if (!didShow) {
+                Alert.alert(
+                  t('Ad preferences unavailable'),
+                  t('Privacy options form is not available or required for this device right now.')
+                );
+              }
+            });
+          }}
+          subtitle={t('Review and adjust your advertising consent preferences.')}
+          title={t('Privacy & Ad Preferences')}
         />
         <SettingsRow onPress={() => navigation.navigate('About')} title={t('About')} />
         <SettingsRow

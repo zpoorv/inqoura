@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
   DEFAULT_APP_LANGUAGE_CODE,

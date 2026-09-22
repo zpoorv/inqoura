@@ -185,6 +185,20 @@ export async function loadCurrentPremiumEntitlement() {
   const authSession = getAuthSession();
 
   if (authSession.status !== 'authenticated' || !authSession.user) {
+    const revenueCatCustomerInfo = await loadRevenueCatCustomerInfo().catch(() => null);
+    const revenueCatState = getRevenueCatPremiumState(revenueCatCustomerInfo);
+
+    if (revenueCatState.isActive) {
+      const guestEntitlement = buildPremiumEntitlement(
+        { plan: 'premium', role: 'user', updatedAt: new Date().toISOString() },
+        revenueCatState,
+        null
+      );
+      setPremiumSession(guestEntitlement);
+      primeSessionResourceCache(SESSION_CACHE_KEYS.premiumEntitlement, guestEntitlement);
+      return guestEntitlement;
+    }
+
     clearPremiumSession();
     trustedPremiumProfileCache = null;
     invalidateSessionResourceCache(SESSION_CACHE_KEYS.premiumEntitlement);
@@ -209,6 +223,20 @@ export async function refreshCurrentPremiumEntitlement() {
   const authSession = getAuthSession();
 
   if (authSession.status !== 'authenticated' || !authSession.user) {
+    const revenueCatCustomerInfo = await loadRevenueCatCustomerInfo().catch(() => null);
+    const revenueCatState = getRevenueCatPremiumState(revenueCatCustomerInfo);
+
+    if (revenueCatState.isActive) {
+      const guestEntitlement = buildPremiumEntitlement(
+        { plan: 'premium', role: 'user', updatedAt: new Date().toISOString() },
+        revenueCatState,
+        null
+      );
+      setPremiumSession(guestEntitlement);
+      primeSessionResourceCache(SESSION_CACHE_KEYS.premiumEntitlement, guestEntitlement);
+      return guestEntitlement;
+    }
+
     clearPremiumSession();
     trustedPremiumProfileCache = null;
     invalidateSessionResourceCache(SESSION_CACHE_KEYS.premiumEntitlement);

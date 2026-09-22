@@ -16,6 +16,26 @@ export type RestrictionAssessment = {
   tone: 'clear' | 'caution' | 'avoid';
 };
 
+// Explicit safe terms that contain allergen substrings or negation phrases
+const SAFE_EXCLUSIONS: Record<RestrictionId, string[]> = {
+  dairy: ['dairy-free', 'dairy free', 'milk-free', 'milk free', 'sans lait', 'sin leche', 'laktosefrei', 'non-dairy'],
+  egg: ['eggplant', 'aubergine', 'egg-free', 'egg free', 'sans oeuf', 'sans œuf', 'sin huevo'],
+  fish: ['starfish', 'jellyfish', 'silverfish'],
+  gluten: ['gluten-free', 'gluten free', 'sans gluten', 'sin gluten', 'glutenfrei', 'senza glutine', 'maltodextrin'],
+  lactose: ['lactose-free', 'lactose free', 'sans lactose', 'sin lactosa', 'laktosefrei'],
+  peanut: ['peanut-free', 'peanut free', 'nut-free', 'nut free', 'sans arachide'],
+  sesame: ['sesame-free', 'sesame free'],
+  shellfish: ['shellfish-free'],
+  soy: ['soy-free', 'soy free', 'soya-free', 'sans soja'],
+  'tree-nut': ['nut-free', 'nut free', 'butternut', 'nutmeg', 'coconut', 'coco'],
+  vegan: ['eggplant', 'plant-based', 'vegan', 'dairy-free'],
+  vegetarian: ['eggplant', 'vegetarian', 'vegan', 'plant-based'],
+};
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function buildSearchableValues(product: ResolvedProduct) {
   return {
     allergens: product.allergens.map(normalizeIngredientValue),
@@ -24,12 +44,34 @@ function buildSearchableValues(product: ResolvedProduct) {
   };
 }
 
-function findKeywordMatch(values: string[], keywords: string[]) {
+function hasNegationOrExclusion(value: string, restrictionId: RestrictionId): boolean {
+  const exclusions = SAFE_EXCLUSIONS[restrictionId] || [];
+  return exclusions.some((exclusion) => value.includes(exclusion));
+}
+
+function findKeywordMatch(values: string[], keywords: string[], restrictionId: RestrictionId) {
   for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    // Skip evaluation if item contains explicit exclusion phrase (e.g., 'gluten-free' or 'eggplant')
+    if (hasNegationOrExclusion(value, restrictionId)) {
+      continue;
+    }
+
     for (const keyword of keywords) {
       const normalizedKeyword = normalizeIngredientValue(keyword);
 
-      if (value.includes(normalizedKeyword)) {
+      // Support structured tag prefixes like 'en:gluten' or 'fr:lait' directly
+      if (normalizedKeyword.includes(':') && value.includes(normalizedKeyword)) {
+        return normalizedKeyword;
+      }
+
+      // Word boundary regex prevents substrings like 'egg' matching inside 'eggplant'
+      // while supporting regular singular and plural forms (e.g., 'almond' matching 'almonds')
+      const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedKeyword)}(?:s|es)?([^a-z0-9]|$)`, 'i');
+      if (pattern.test(value)) {
         return normalizedKeyword;
       }
     }
@@ -75,7 +117,11 @@ export function assessProductRestrictions(
       return;
     }
 
-    const allergenMatch = findKeywordMatch(searchableValues.allergens, definition.keywords);
+    const allergenMatch = findKeywordMatch(
+      searchableValues.allergens,
+      definition.keywords,
+      restrictionId
+    );
 
     if (allergenMatch) {
       matches.push({
@@ -89,7 +135,8 @@ export function assessProductRestrictions(
 
     const ingredientMatch = findKeywordMatch(
       searchableValues.ingredients,
-      definition.keywords
+      definition.keywords,
+      restrictionId
     );
 
     if (ingredientMatch) {
@@ -102,7 +149,11 @@ export function assessProductRestrictions(
       return;
     }
 
-    const labelMatch = findKeywordMatch(searchableValues.labels, definition.keywords);
+    const labelMatch = findKeywordMatch(
+      searchableValues.labels,
+      definition.keywords,
+      restrictionId
+    );
 
     if (labelMatch) {
       matches.push({
@@ -117,7 +168,6 @@ export function assessProductRestrictions(
   return {
     matches,
     summary: buildSummary(matches, severity),
-    tone:
-      matches.length === 0 ? 'clear' : severity === 'strict' ? 'avoid' : 'caution',
+    tone: matches.length === 0 ? 'clear' : severity === 'strict' ? 'avoid' : 'caution',
   };
 }

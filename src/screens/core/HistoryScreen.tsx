@@ -45,7 +45,9 @@ function matchesQuery(entry: ScanHistoryEntry, query: string) {
     return true;
   }
 
-  return [entry.name, entry.barcode, entry.riskSummary, entry.gradeLabel, getDietProfileDefinition(entry.profileId).label]
+  const profileLabel = getDietProfileDefinition(entry.profileId)?.label ?? '';
+
+  return [entry.name, entry.barcode, entry.riskSummary, entry.gradeLabel, profileLabel]
     .join(' ')
     .toLowerCase()
     .includes(normalizedQuery);

@@ -92,13 +92,25 @@ export async function saveRemoteScanHistoryEntry(uid: string, entry: ScanHistory
   }
 }
 
+const FIRESTORE_BATCH_LIMIT = 400;
+
+async function commitInChunks<T>(
+  items: T[],
+  addToBatch: (batch: ReturnType<typeof writeBatch>, item: T) => void
+) {
+  for (let index = 0; index < items.length; index += FIRESTORE_BATCH_LIMIT) {
+    const chunk = items.slice(index, index + FIRESTORE_BATCH_LIMIT);
+    const batch = writeBatch(getDb());
+    chunk.forEach((item) => addToBatch(batch, item));
+    await batch.commit();
+  }
+}
+
 export async function deleteRemoteScanHistoryEntries(uid: string, ids: string[]) {
   try {
-    const batch = writeBatch(getDb());
-    ids.forEach((id) => {
+    await commitInChunks(ids, (batch, id) => {
       batch.delete(doc(getHistoryCollectionRef(uid), id));
     });
-    await batch.commit();
   } catch {
     // Ignore remote cleanup failures and preserve local behavior.
   }
@@ -107,14 +119,14 @@ export async function deleteRemoteScanHistoryEntries(uid: string, ids: string[])
 export async function replaceRemoteScanHistory(uid: string, entries: ScanHistoryEntry[]) {
   try {
     const existingEntries = await getDocs(getHistoryCollectionRef(uid));
-    const batch = writeBatch(getDb());
 
-    existingEntries.docs.forEach((item) => batch.delete(item.ref));
-    entries.forEach((entry) => {
-      batch.set(doc(getHistoryCollectionRef(uid), entry.id), entry);
+    await commitInChunks(existingEntries.docs, (batch, docSnap) => {
+      batch.delete(docSnap.ref);
     });
 
-    await batch.commit();
+    await commitInChunks(entries, (batch, entry) => {
+      batch.set(doc(getHistoryCollectionRef(uid), entry.id), entry);
+    });
   } catch {
     // Sync remains optional while Firestore is being rolled out.
   }
@@ -122,10 +134,12 @@ export async function replaceRemoteScanHistory(uid: string, entries: ScanHistory
 
 export async function deleteRemoteUserData(uid: string) {
   const historyDocs = await getDocs(getHistoryCollectionRef(uid));
-  const batch = writeBatch(getDb());
 
-  historyDocs.docs.forEach((item) => batch.delete(item.ref));
-  batch.delete(getUserDocRef(uid));
+  await commitInChunks(historyDocs.docs, (batch, docSnap) => {
+    batch.delete(docSnap.ref);
+  });
 
-  await batch.commit();
+  const finalBatch = writeBatch(getDb());
+  finalBatch.delete(getUserDocRef(uid));
+  await finalBatch.commit();
 }

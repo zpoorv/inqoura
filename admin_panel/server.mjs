@@ -48,13 +48,19 @@ createServer(async (request, response) => {
   const requestUrl = new URL(request.url || '/', `http://${request.headers.host}`);
   const pathname = requestUrl.pathname === '/' ? '/login.html' : requestUrl.pathname;
 
+  const SECURITY_HEADERS = {
+    'Cache-Control': 'no-store',
+    'Content-Security-Policy': "default-src 'self' 'unsafe-inline' https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com;",
+    'Referrer-Policy': 'no-referrer',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+  };
+
   if (pathname === '/config.js') {
     const body = await buildConfigScript();
     response.writeHead(200, {
-      'Cache-Control': 'no-store',
+      ...SECURITY_HEADERS,
       'Content-Type': 'text/javascript; charset=utf-8',
-      'Referrer-Policy': 'no-referrer',
-      'X-Frame-Options': 'DENY',
     });
     response.end(body);
     return;
@@ -71,10 +77,8 @@ createServer(async (request, response) => {
   try {
     const body = await readFile(targetPath);
     response.writeHead(200, {
-      'Cache-Control': 'no-store',
+      ...SECURITY_HEADERS,
       'Content-Type': MIME_TYPES[path.extname(targetPath)] || 'text/plain; charset=utf-8',
-      'Referrer-Policy': 'no-referrer',
-      'X-Frame-Options': 'DENY',
     });
     response.end(body);
   } catch {

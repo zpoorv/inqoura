@@ -3,7 +3,7 @@ import {
   isDietProfileId,
   type DietProfileId,
 } from '../constants/dietProfiles';
-import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HealthScoreGrade } from '../constants/productHealthScore';
 import type { ProductTimelineEntry } from '../models/productTimeline';
 import type { ResolvedProduct } from '../types/product';

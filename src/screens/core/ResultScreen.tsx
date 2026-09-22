@@ -1540,22 +1540,46 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
 }
 
 const MetricChip = memo(function MetricChip({ metric }: { metric: ProductMetric }) {
-  const { colors, typography } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
+  const { colors } = useAppTheme();
+  const toneColor = getToneColor(colors, metric.tone);
 
   return (
     <View
       style={[
-        styles.metricChip,
-        { borderColor: getToneColor(colors, metric.tone) },
+        metricChipStyles.chip,
+        {
+          backgroundColor: colors.background,
+          borderColor: toneColor,
+        },
       ]}
     >
-      <Text style={styles.metricLabel}>{metric.label}</Text>
-      <Text style={[styles.metricValue, { color: getToneColor(colors, metric.tone) }]}>
+      <Text style={[metricChipStyles.label, { color: colors.textMuted }]}>{metric.label}</Text>
+      <Text style={[metricChipStyles.value, { color: toneColor }]}>
         {metric.value}
       </Text>
     </View>
   );
+});
+
+const metricChipStyles = StyleSheet.create({
+  chip: {
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+    minWidth: 132,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  value: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
 });
 
 const createStyles = (

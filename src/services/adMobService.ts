@@ -227,3 +227,18 @@ export async function openMobileAdsInspector() {
     throw new Error(describeAdMobError(error));
   }
 }
+
+export async function showAdConsentPrivacyOptions() {
+  if (!isMobileAdsSupportedPlatform()) {
+    return false;
+  }
+
+  try {
+    const mobileAdsModule = await import('react-native-google-mobile-ads');
+    await mobileAdsModule.AdsConsent.showPrivacyOptionsForm();
+    return true;
+  } catch {
+    return false;
+  }
+}
+

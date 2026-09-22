@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Linking, Platform } from 'react-native';
 

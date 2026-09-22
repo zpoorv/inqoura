@@ -110,7 +110,7 @@ function getRecognizableIngredientCount(normalizedIngredients: string[]) {
 
     const words = ingredient.split(' ').filter(Boolean);
 
-    return words.length > 0 && words.length <= 3 && /^[a-z\s-]+$/.test(ingredient);
+    return words.length > 0 && words.length <= 3 && /^[\p{L}\s-]+$/u.test(ingredient);
   }).length;
 }
 

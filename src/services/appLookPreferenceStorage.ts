@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage/lib/commonjs/index';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getAuthSession } from '../store';
 import type { AppLookId } from '../models/preferences';

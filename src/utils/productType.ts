@@ -32,14 +32,21 @@ const FOOD_KEYWORDS = [
   'spice',
   'seasoning',
   'flour',
-  'oil',
+  'cooking oil',
+  'olive oil',
+  'vegetable oil',
+  'sunflower oil',
+  'canola oil',
+  'mustard oil',
+  'sesame oil',
+  'edible oil',
   'yogurt',
   'curd',
   'cheese',
   'fruit',
   'vegetable',
   'masala',
-  'seasoning',
+  'pasta',
 ];
 
 const NON_FOOD_KEYWORDS = [
@@ -67,6 +74,15 @@ const NON_FOOD_KEYWORDS = [
   'cleaning',
   'air freshener',
   'polish',
+  'motor oil',
+  'engine oil',
+  'baby oil',
+  'massage oil',
+  'mineral oil',
+  'lotion',
+  'sunscreen',
+  'body wash',
+  'face wash',
 ];
 
 const FOOD_PACKAGING_HINTS = [
