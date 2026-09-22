@@ -95,8 +95,7 @@ export async function signUpWithEmail(input: EmailPasswordSignUpInput) {
         getEmailLinkActionSettings()
       ),
     ]);
-    await signOut(auth);
-    await clearAuthenticatedSession();
+    await completeAuthenticatedSession(credentials.user);
     measurePerformanceTrace('signup-start', 'signup-success', {
       provider: 'email',
     });

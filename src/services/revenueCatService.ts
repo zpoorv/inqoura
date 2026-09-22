@@ -15,13 +15,18 @@ import {
   REVENUECAT_PACKAGE_ORDER,
   type InqouraSubscriptionPackageId,
 } from '../constants/revenueCat';
+import { buildPremiumEntitlement } from '../models/premium';
 import type { UserProfile } from '../models/userProfile';
-import { getAuthSession } from '../store';
+import { getAuthSession, setPremiumSession } from '../store';
 import {
   DEFAULT_NETWORK_ERROR_MESSAGE,
   isLikelyNetworkError,
 } from '../utils/networkErrors';
 import { saveRemoteUserProfile } from './cloudUserDataService';
+import {
+  primeSessionResourceCache,
+  SESSION_CACHE_KEYS,
+} from './sessionResourceCache';
 import { loadUserProfile } from './userProfileService';
 import { saveStoredUserProfile } from './userProfileStorage';
 
@@ -149,21 +154,35 @@ async function syncRevenueCatPlanForCurrentUser(customerInfo: CustomerInfo | nul
   const nextPlan: UserProfile['plan'] = getRevenueCatPremiumState(customerInfo).isActive
     ? 'premium'
     : 'free';
+  const nextProfile: UserProfile =
+    profile.plan === nextPlan
+      ? profile
+      : {
+          ...profile,
+          plan: nextPlan,
+          updatedAt: new Date().toISOString(),
+        };
 
-  if (profile.plan === nextPlan) {
-    return;
+  if (profile.plan !== nextPlan) {
+    await saveStoredUserProfile(nextProfile);
+    await saveRemoteUserProfile(nextProfile).catch(() => {
+      // Premium should still unlock locally if the billing profile mirror fails.
+    });
   }
 
-  const nextProfile: UserProfile = {
-    ...profile,
-    plan: nextPlan,
-    updatedAt: new Date().toISOString(),
-  };
+  primeSessionResourceCache(SESSION_CACHE_KEYS.userProfile, nextProfile);
 
-  await saveStoredUserProfile(nextProfile);
-  await saveRemoteUserProfile(nextProfile).catch(() => {
-    // Premium should still unlock locally if the billing profile mirror fails.
-  });
+  const entitlement = buildPremiumEntitlement(
+    {
+      plan: nextProfile.plan,
+      role: nextProfile.role,
+      updatedAt: nextProfile.updatedAt,
+    },
+    getRevenueCatPremiumState(customerInfo),
+    null
+  );
+  setPremiumSession(entitlement);
+  primeSessionResourceCache(SESSION_CACHE_KEYS.premiumEntitlement, entitlement);
 }
 
 export function getRevenueCatPremiumState(

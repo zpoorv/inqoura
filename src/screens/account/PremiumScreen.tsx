@@ -44,6 +44,7 @@ import { loadSessionPremiumEntitlement } from '../../services/sessionDataService
 import {
   readSessionResourceCache,
   SESSION_CACHE_KEYS,
+  type CachePolicy,
 } from '../../services/sessionResourceCache';
 import { getPremiumSession, subscribePremiumSession } from '../../store';
 
@@ -77,6 +78,7 @@ function PremiumContent({ featureId }: PremiumContentProps) {
   const activeProductLabel =
     entitlement.billingProductIdentifier || billingState.productIdentifier || null;
   const hasBillingAccess = revenueCatAvailable && packageOptions.length > 0;
+  const shouldShowPurchaseOptions = !entitlement.isPremium;
   const billingPlaceholderCopy = useMemo(() => {
     if (!revenueCatAvailable) {
       return {
@@ -110,10 +112,10 @@ function PremiumContent({ featureId }: PremiumContentProps) {
         ? t('Billing, restores, and access live here.')
         : `${t('Upgrade only when you want deeper shopper guidance.')} ${PREMIUM_PRICE_PREVIEW_COPY}`;
 
-  const loadPremiumState = useCallback(async () => {
+  const loadPremiumState = useCallback(async (policy: CachePolicy = 'stale-while-revalidate') => {
     const latestCustomerInfo = await loadRevenueCatCustomerInfo();
     const [latestEntitlement, latestOffering] = await Promise.all([
-      loadSessionPremiumEntitlement('stale-while-revalidate'),
+      loadSessionPremiumEntitlement(policy),
       loadRevenueCatOfferings(),
     ]);
     const nextPackageOptions = await loadRevenueCatPackageOptions(
@@ -190,11 +192,11 @@ function PremiumContent({ featureId }: PremiumContentProps) {
 
     try {
       await purchaseRevenueCatPackage(selectedPackage.packageRef);
-      await loadPremiumState();
-      trackAnalyticsEvent('premium_purchase_succeeded', {
-        packageId: selectedPackage.id,
-        productIdentifier: selectedPackage.productIdentifier,
-      });
+        await loadPremiumState('force-refresh');
+        trackAnalyticsEvent('premium_purchase_succeeded', {
+          packageId: selectedPackage.id,
+          productIdentifier: selectedPackage.productIdentifier,
+        });
       Alert.alert(
         t('Premium updated'),
         t('{plan} is now active.', { plan: selectedPackage.title })
@@ -304,7 +306,7 @@ function PremiumContent({ featureId }: PremiumContentProps) {
             </View>
           </ScreenReveal>
 
-          {packageOptions.length > 0 ? (
+          {shouldShowPurchaseOptions && packageOptions.length > 0 ? (
             <ScreenReveal delayMs={120}>
               <View style={styles.subscriptionSection}>
                 <SectionHeader
@@ -331,7 +333,7 @@ function PremiumContent({ featureId }: PremiumContentProps) {
                 ))}
               </View>
             </ScreenReveal>
-          ) : (
+          ) : shouldShowPurchaseOptions ? (
             <ScreenReveal delayMs={120}>
               <View style={styles.billingCard}>
                 <Text style={styles.sectionTitle}>
@@ -346,68 +348,82 @@ function PremiumContent({ featureId }: PremiumContentProps) {
                 </Text>
               </View>
             </ScreenReveal>
-          )}
+          ) : null}
 
           <ScreenReveal delayMs={150}>
             <View style={styles.actionsCard}>
               <SectionHeader
-                subtitle={t('Restore or manage purchases from here.')}
-                title={t('Actions')}
+                subtitle={
+                  shouldShowPurchaseOptions
+                    ? t('Restore or manage purchases from here.')
+                    : t('Manage your membership from here.')
+                }
+                title={t(shouldShowPurchaseOptions ? 'Actions' : 'Manage')}
               />
               <View style={styles.buttonStack}>
-              <PrimaryButton
-                disabled={!hasBillingAccess || Boolean(pendingActionId)}
-                label={t(entitlement.isPremium ? 'See Plans' : 'View Plans')}
-                onPress={() => {
-                  setPendingActionId('paywall');
-                  void presentRevenueCatPaywall(currentOffering)
-                    .then(loadPremiumState)
-                    .catch((error) => {
-                      Alert.alert(
-                        t('Paywall unavailable'),
-                        t(
-                          getRevenueCatErrorMessage(
-                            error,
-                            'We could not open premium checkout right now.'
-                          )
-                        )
-                      );
-                    })
-                    .finally(() => setPendingActionId(null));
-                }}
-              />
-              <PrimaryButton
-                disabled={!revenueCatAvailable || Boolean(pendingActionId)}
-                label={t('Restore Purchases')}
-                onPress={() => {
-                  setPendingActionId('restore');
-                  trackAnalyticsEvent('premium_restore_started');
-                  void restoreRevenueCatPurchases()
-                    .then(async (restoredCustomerInfo) => {
-                      await loadPremiumState();
-                      trackAnalyticsEvent('premium_restore_succeeded', {
-                        premiumState: getRevenueCatPremiumState(restoredCustomerInfo).isActive
-                          ? 'premium'
-                          : 'free',
-                      });
-                      Alert.alert(
-                        t('Restore complete'),
-                        getRevenueCatPremiumState(restoredCustomerInfo).isActive
-                          ? t('Your premium access is active again.')
-                          : t('No active premium subscription was found on this store account.')
-                      );
-                    })
-                    .catch((error) => {
-                      trackAnalyticsEvent('premium_restore_failed');
-                      recordNonFatalError('premium.restore', error);
-                      Alert.alert(
-                        t('Restore failed'),
-                        t(getRevenueCatErrorMessage(error, 'We could not restore purchases right now.'))
-                      );
-                    })
-                    .finally(() => setPendingActionId(null));
-                }}
-              />
+                {shouldShowPurchaseOptions ? (
+                  <>
+                    <PrimaryButton
+                      disabled={!hasBillingAccess || Boolean(pendingActionId)}
+                      label={t('View Plans')}
+                      onPress={() => {
+                        setPendingActionId('paywall');
+                        void presentRevenueCatPaywall(currentOffering)
+                          .then(() => loadPremiumState('force-refresh'))
+                          .catch((error) => {
+                            Alert.alert(
+                              t('Paywall unavailable'),
+                              t(
+                                getRevenueCatErrorMessage(
+                                  error,
+                                  'We could not open premium checkout right now.'
+                                )
+                              )
+                            );
+                          })
+                          .finally(() => setPendingActionId(null));
+                      }}
+                    />
+                    <PrimaryButton
+                      disabled={!revenueCatAvailable || Boolean(pendingActionId)}
+                      label={t('Restore Purchases')}
+                      onPress={() => {
+                        setPendingActionId('restore');
+                        trackAnalyticsEvent('premium_restore_started');
+                        void restoreRevenueCatPurchases()
+                          .then(async (restoredCustomerInfo) => {
+                            await loadPremiumState('force-refresh');
+                            trackAnalyticsEvent('premium_restore_succeeded', {
+                              premiumState: getRevenueCatPremiumState(restoredCustomerInfo)
+                                .isActive
+                                ? 'premium'
+                                : 'free',
+                            });
+                            Alert.alert(
+                              t('Restore complete'),
+                              getRevenueCatPremiumState(restoredCustomerInfo).isActive
+                                ? t('Your premium access is active again.')
+                                : t('No active premium subscription was found on this store account.')
+                            );
+                          })
+                          .catch((error) => {
+                            trackAnalyticsEvent('premium_restore_failed');
+                            recordNonFatalError('premium.restore', error);
+                            Alert.alert(
+                              t('Restore failed'),
+                              t(
+                                getRevenueCatErrorMessage(
+                                  error,
+                                  'We could not restore purchases right now.'
+                                )
+                              )
+                            );
+                          })
+                          .finally(() => setPendingActionId(null));
+                      }}
+                    />
+                  </>
+                ) : null}
               {(entitlement.isPremium || billingState.managementUrl) && revenueCatAvailable ? (
                 <PrimaryButton
                   disabled={Boolean(pendingActionId)}
@@ -415,7 +431,7 @@ function PremiumContent({ featureId }: PremiumContentProps) {
                   onPress={() => {
                     setPendingActionId('customer-center');
                     void presentRevenueCatCustomerCenter()
-                      .then(loadPremiumState)
+                      .then(() => loadPremiumState('force-refresh'))
                       .catch((error) => {
                         Alert.alert(
                           t('Customer Center unavailable'),

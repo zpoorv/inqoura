@@ -2,7 +2,7 @@
   "expo": {
     "name": "Inqoura",
     "slug": "inqoura",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "inqoura",
@@ -50,7 +50,7 @@
         "android.permission.CAMERA"
       ],
       "package": "com.zpoorv.inqoura",
-      "versionCode": 6
+      "versionCode": 7
     },
     "web": {
       "output": "static",

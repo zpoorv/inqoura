@@ -1,7 +1,11 @@
 import type { User } from 'firebase/auth';
 
 import { storeAuthenticatedUser } from './authHelpers';
-import { primePremiumEntitlementFromProfile } from './premiumEntitlementService';
+import {
+  primePremiumEntitlementFromProfile,
+  refreshCurrentPremiumEntitlement,
+} from './premiumEntitlementService';
+import { clearSessionResourceCache } from './sessionResourceCache';
 import {
   primeUserProfileFromAuthUser,
   syncCurrentUserProfileToFirestore,
@@ -9,6 +13,7 @@ import {
 
 export async function completeAuthenticatedSession(user: User) {
   const authUser = await storeAuthenticatedUser(user);
+  clearSessionResourceCache();
   const localProfile = await primeUserProfileFromAuthUser(authUser);
 
   primePremiumEntitlementFromProfile(
@@ -34,6 +39,8 @@ export async function completeAuthenticatedSession(user: User) {
       });
     })
     .catch(() => null);
+
+  void refreshCurrentPremiumEntitlement().catch(() => null);
 
   return authUser;
 }
