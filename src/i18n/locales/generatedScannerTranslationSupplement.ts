@@ -1,4 +1,4 @@
-import type { AppLanguageCode } from './languages';
+import type { AppLanguageCode } from '../languages';
 
 type TranslationDictionary = Record<string, string>;
 

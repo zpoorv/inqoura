@@ -1,4 +1,4 @@
-import type { ProductOverrideLink } from '../models/productOverride';
+import type { ProductOverrideLink } from './productOverride';
 import type { HealthScoreGrade } from '../constants/productHealthScore';
 
 export type ProductSourceStatus = 'used' | 'missed';

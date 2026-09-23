@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -115,10 +115,10 @@ test('Health score recognizable ingredient logic accepts Unicode letters', () =>
 
 // Test 5: Firestore Batch Chunking Threshold
 test('Cloud user data service defines and uses chunked batches', () => {
-  const fileContent = readFileSync(
-    path.join(projectRoot, 'src/services/cloudUserDataService.ts'),
-    'utf8'
-  );
+  const filePath = existsSync(path.join(projectRoot, 'src/services/cloud/cloudUserDataService.ts'))
+    ? path.join(projectRoot, 'src/services/cloud/cloudUserDataService.ts')
+    : path.join(projectRoot, 'src/services/cloudUserDataService.ts');
+  const fileContent = readFileSync(filePath, 'utf8');
 
   assert.ok(fileContent.includes('FIRESTORE_BATCH_LIMIT'), 'Should define FIRESTORE_BATCH_LIMIT');
   assert.ok(fileContent.includes('commitInChunks'), 'Should define commitInChunks utility');
@@ -126,10 +126,10 @@ test('Cloud user data service defines and uses chunked batches', () => {
 
 // Test 6: Compliant OpenFoodFacts User-Agent
 test('HTTP utility attaches compliant User-Agent header', () => {
-  const fileContent = readFileSync(
-    path.join(projectRoot, 'src/services/http.ts'),
-    'utf8'
-  );
+  const filePath = existsSync(path.join(projectRoot, 'src/services/api/http.ts'))
+    ? path.join(projectRoot, 'src/services/api/http.ts')
+    : path.join(projectRoot, 'src/services/http.ts');
+  const fileContent = readFileSync(filePath, 'utf8');
 
   assert.ok(fileContent.includes('DEFAULT_USER_AGENT'), 'Should define DEFAULT_USER_AGENT');
   assert.ok(fileContent.includes("'User-Agent'"), "Should attach 'User-Agent' header");

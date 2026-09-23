@@ -41,22 +41,42 @@ Inqoura is a mobile application built on **React Native (0.81.5)** with **Expo (
 
 ## 2. Directory Structure & Responsibilities
 
-The codebase follows a modular, layer-oriented structure under `src/`:
+The codebase follows an organized, domain-grouped architecture under `src/`:
 
 ```text
 src/
-├── components/          # Pure, reusable UI components (cards, badges, modals, buttons)
-├── constants/           # Design tokens, theme colors, branding constants, API endpoints
+├── components/          # Reusable UI components grouped by sub-domain
+│   ├── common/          # Universal primitives (PrimaryButton, AuthTextField, SectionHeader, PageStateCard)
+│   ├── layout/          # Menus and providers (BottomMenuBar, PopupSheetLayout, AppLanguageProvider, AppThemeProvider)
+│   ├── scanner/         # Scanner HUD (BarcodeScannerPanel, OcrCapturePanel, ManualBarcodeEntry)
+│   ├── result/          # Result feature cards (ResultTrustCard, EnvironmentalImpactCard, HouseholdFitCard)
+│   ├── modals/          # Selection dialogs (OptionPickerModal, DietProfileModal, HouseholdProfilesModal)
+│   └── history/         # History list views (HistoryListItem, HistoryListItemSkeleton)
+├── constants/           # Pure design tokens, theme colors, branding constants, API endpoints (< 600 lines)
+├── i18n/                # Dedicated localization directory (12 languages, RTL support, translation packs)
+│   ├── index.ts         # Translation helper and exports
+│   ├── languages.ts     # Language codes, labels, and helper guards
+│   ├── translations.ts  # Core translation dictionary engine
+│   └── locales/         # Localized string packs and sweep supplements
 ├── mocks/               # Web platform fallbacks (e.g., googleMobileAdsMock for Metro)
-├── models/              # TypeScript interfaces for domain entities (Product, Scan, User)
 ├── navigation/          # React Navigation stacks, bottom tabs, route definitions
 ├── screens/             # Top-level screen components handling layout and lifecycle
 │   ├── account/         # Account management, profile, language, theme, and billing
 │   ├── core/            # Main flow: HomeScreen, ScanScreen, ResultScreen, HistoryScreen
+│   │   └── result/      # Sub-components decomposed from ResultScreen (MetricChip, styles, helpers)
 │   └── support/         # Help, feedback, Terms, and Privacy screens
-├── services/            # External API clients and SDK integrations
-├── store/               # Lightweight custom hook stores for global app state
-├── types/               # General TypeScript type definitions and navigation prop types
+├── services/            # External API clients and business services grouped by domain
+│   ├── api/             # HTTP clients (http.ts, openFoodFacts.ts, productLookup.ts)
+│   ├── auth/            # Authentication flows (authService.ts, googleSignInService.ts, emailLinkAuthService.ts)
+│   ├── cloud/           # Firebase & Firestore (cloudUserDataService.ts, productCatalogService.ts)
+│   ├── monetization/    # In-app billing & ads (revenueCatService.ts, premiumEntitlementService.ts, adMobService.ts)
+│   ├── notifications/   # Push & in-app alerts (notificationCenterService.ts, historyNotificationService.ts)
+│   ├── telemetry/       # Metrics & tracing (analyticsService.ts, appMonitoringService.ts, performanceTrace.ts)
+│   ├── storage/         # Local AsyncStorage wrappers (scanHistoryStorage.ts, userProfileStorage.ts)
+│   ├── gamification/    # Streaks & badges (gamificationService.ts, scannerIntroProgressService.ts)
+│   └── household/       # Family profiles (householdProfilesService.ts)
+├── store/               # Lightweight custom hook stores for global app state (auth, history, theme, cart)
+├── types/               # Consolidated TypeScript definitions and domain models
 └── utils/               # Pure algorithmic functions (scoring, allergen regex matching, formatting)
 ```
 
