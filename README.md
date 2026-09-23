@@ -125,6 +125,7 @@ All project documentation, guides, and audit roadmaps are organized under [`docs
 - **[Terms of Service](docs/TERMS_OF_SERVICE.md):** Terms of use and liability disclosures.
 
 ### Audits & Roadmaps
+- **[The Overkill Engineering Blueprint](docs/OVERKILL_ROADMAP.md):** Architectural masterplan for sub-100ms speed, continuous basket scanning, product duel, offline-first resilience, and universal accessibility.
 - **[Project Analysis Report](docs/report.md):** Executive technical report and audit summary.
 - **[Weaknesses & Vulnerabilities Audit](docs/problems.md):** Catalog of identified project weaknesses with resolution statuses.
 - **[Remediation Plan](docs/solutions.md):** Actionable engineering roadmap and execution progress.
