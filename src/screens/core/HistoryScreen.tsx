@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useDeferredValue, useMemo, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -283,14 +283,14 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
 
   return (
     <SafeAreaView edges={['left', 'right']} style={styles.safeArea}>
-      <FlatList
+      <FlashList
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: 108 + Math.max(insets.bottom, 16) },
         ]}
         contentInsetAdjustmentBehavior="automatic"
         data={listData}
-        initialNumToRender={8}
+        drawDistance={250}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => (typeof item === 'number' ? `history-skeleton-${item}` : item.id)}
@@ -311,14 +311,11 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps) {
           ) : null
         }
         ListHeaderComponent={headerContent}
-        maxToRenderPerBatch={8}
         renderItem={({ item }) =>
           typeof item === 'number' ? <HistoryListItemSkeleton /> : renderHistoryItem({ item })
         }
         showsVerticalScrollIndicator={false}
         style={styles.list}
-        updateCellsBatchingPeriod={60}
-        windowSize={5}
       />
     </SafeAreaView>
   );

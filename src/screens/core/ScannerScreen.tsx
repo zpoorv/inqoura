@@ -168,6 +168,7 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   const [scannerState, setScannerState] = useState<ScannerState>('ready');
   const activeLookupRef = useRef(false);
   const recentScanRef = useRef<{ barcode: string; scannedAt: number } | null>(null);
+  const lastScanFrameTimeRef = useRef<number>(0);
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { height: windowHeight } = useWindowDimensions();
@@ -355,6 +356,12 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
   };
 
   const handleBarcodeScanned = ({ data, type }: BarcodeScanningResult) => {
+    const now = Date.now();
+    if (now - lastScanFrameTimeRef.current < 33) {
+      return;
+    }
+    lastScanFrameTimeRef.current = now;
+
     if (activeLookupRef.current || scannerState !== 'ready') {
       return;
     }
@@ -449,6 +456,13 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
                     : undefined
                 }
                 overlayLabel={getOverlayLabel(scannerState, scanQuality)}
+                reticleStatus={
+                  scannerState === 'loading'
+                    ? 'locked'
+                    : scannerState === 'error'
+                      ? 'danger'
+                      : 'searching'
+                }
                 overlayActionLabel={
                   scannerState === 'error'
                     ? 'Try again'

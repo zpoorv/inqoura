@@ -36,6 +36,14 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function matchKeywordToken(text: string, keyword: string): boolean {
+  if (!text || !keyword) return false;
+  const normalizedKeyword = normalizeIngredientValue(keyword);
+  const normalizedText = normalizeIngredientValue(text);
+  const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedKeyword)}(?:s|es)?([^a-z0-9]|$)`, 'i');
+  return pattern.test(normalizedText);
+}
+
 function buildSearchableValues(product: ResolvedProduct) {
   return {
     allergens: product.allergens.map(normalizeIngredientValue),

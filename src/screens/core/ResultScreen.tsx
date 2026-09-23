@@ -32,6 +32,13 @@ import ResultCardSkeleton from '../../components/ResultCardSkeleton';
 import ResultTrustCard from '../../components/ResultTrustCard';
 import ShareCardPickerModal from '../../components/ShareCardPickerModal';
 import ShareResultCard from '../../components/ShareResultCard';
+import { ComponentErrorBoundary } from '../../components/common/ComponentErrorBoundary';
+import { StatusGlyphBadge, type StatusGlyphType } from '../../components/common/StatusGlyphBadge';
+import FoodPurityMedallion from '../../components/result/FoodPurityMedallion';
+import IngredientConstellation from '../../components/result/IngredientConstellation';
+import ServingSizeAdjuster from '../../components/result/ServingSizeAdjuster';
+import { triggerCautionHaptic, triggerDangerHaptic, triggerSafeHaptic } from '../../utils/haptics';
+import { generateVoiceVerdict } from '../../utils/voiceVerdict';
 import MetricChip from './result/MetricChip';
 import { createStyles } from './result/resultScreenStyles';
 import type { AppColors } from '../../constants/theme';
@@ -299,6 +306,61 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
       ),
     [confidence, decisionVerdict, foodStatus, insights?.smartScore, t]
   );
+  const statusGlyph = useMemo<StatusGlyphType>(() => {
+    const hasHouseholdAvoid = householdFit?.members.some((m) => m.status === 'avoid');
+    const isDanger =
+      restrictionAssessment.tone === 'avoid' ||
+      Boolean(hasHouseholdAvoid) ||
+      insights?.gradeLabel === 'F' ||
+      insights?.gradeLabel === 'D';
+
+    if (isDanger) return 'danger';
+
+    const isSafe =
+      restrictionAssessment.tone === 'clear' &&
+      (!householdFit || householdFit.verdict === 'works-for-everyone') &&
+      (insights?.smartScore == null || insights.smartScore >= 75);
+
+    if (isSafe) return 'safe';
+    return 'caution';
+  }, [
+    householdFit,
+    restrictionAssessment.tone,
+    insights?.gradeLabel,
+    insights?.smartScore,
+  ]);
+
+  const voiceVerdictText = useMemo(() => {
+    if (!analysisResult) return '';
+    return generateVoiceVerdict({
+      productName: displayProductName,
+      healthScore: insights?.smartScore,
+      status: statusGlyph,
+      flaggedRestrictions: selectedRestrictionLabels,
+      unmetMemberNames:
+        householdFit?.members
+          .filter((m) => m.status === 'avoid')
+          .map((m) => m.name) || [],
+    });
+  }, [
+    analysisResult,
+    displayProductName,
+    insights?.smartScore,
+    statusGlyph,
+    selectedRestrictionLabels,
+    householdFit,
+  ]);
+
+  useEffect(() => {
+    if (!analysisResult) return;
+    if (statusGlyph === 'danger') {
+      void triggerDangerHaptic();
+    } else if (statusGlyph === 'safe') {
+      void triggerSafeHaptic();
+    } else {
+      void triggerCautionHaptic();
+    }
+  }, [analysisResult, statusGlyph]);
   const disclaimerText =
     adminConfig?.resultDisclaimer ||
     t('Quick guide only.');
@@ -842,6 +904,14 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {voiceVerdictText ? (
+          <View
+            accessible={true}
+            accessibilityLiveRegion="assertive"
+            accessibilityLabel={voiceVerdictText}
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+          />
+        ) : null}
         {shareableResult && (isSharePickerVisible || isShareCaptureMounted) ? (
           <View style={styles.hiddenShareCapture}>
             <View collapsable={false}>
@@ -884,6 +954,7 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                   scanCompletionCopy.body}
               </Text>
               <View style={styles.scoreHeroMetaRow}>
+                <StatusGlyphBadge status={statusGlyph} size="sm" />
                 {confidence ? (
                   <View
                     style={[
@@ -916,6 +987,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             <ResultCardSkeleton />
           ) : insights && foodStatus !== 'non-food' && foodStatus !== 'unclear' ? (
             <>
+              <FoodPurityMedallion
+                score={insights.smartScore ?? 60}
+                gradeLabel={insights.gradeLabel}
+                novaGroup={product?.novaGroup}
+                nutriScoreGrade={product?.nutriScore}
+                additivesCount={product?.additiveCount ?? 0}
+              />
               <View style={styles.scoreHeroMainRow}>
                 <View
                   style={[
@@ -1041,7 +1119,9 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           )}
         </View>
 
-        {householdFit ? <HouseholdFitCard fit={householdFit} /> : null}
+        <ComponentErrorBoundary fallbackTitle={t('Household fit temporarily unavailable')}>
+          {householdFit ? <HouseholdFitCard fit={householdFit} /> : null}
+        </ComponentErrorBoundary>
 
         <View style={styles.infoCard}>
           <Text style={styles.label}>{t('Quick actions')}</Text>
@@ -1100,11 +1180,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                   })
               : t('Confirm whether this pack still matches what you are holding.')}
           </Text>
-          {timelinePreview.length > 0 ? (
-            <ProductTimelineCard entries={timelinePreview} title={t('Changed since last buy')} />
-          ) : (
-            <Text style={styles.statusText}>{t('No meaningful pack changes seen yet.')}</Text>
-          )}
+          <ComponentErrorBoundary fallbackTitle={t('Timeline temporarily unavailable')}>
+            {timelinePreview.length > 0 ? (
+              <ProductTimelineCard entries={timelinePreview} title={t('Changed since last buy')} />
+            ) : (
+              <Text style={styles.statusText}>{t('No meaningful pack changes seen yet.')}</Text>
+            )}
+          </ComponentErrorBoundary>
           <View style={styles.savedActionRow}>
             <Pressable
               disabled={isSubmittingTrustConfirmation}
@@ -1135,20 +1217,24 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           <ResultTrustCard trust={trustSnapshot} />
         ) : null}
 
-        {restrictionSummary ? (
-          <ProductRestrictionCard
-            matches={restrictionAssessment.matches}
-            selectedLabels={selectedRestrictionLabels}
-            summary={restrictionSummary}
-            tone={restrictionAssessment.tone}
-          />
-        ) : null}
+        <ComponentErrorBoundary fallbackTitle={t('Restrictions check temporarily unavailable')}>
+          {restrictionSummary ? (
+            <ProductRestrictionCard
+              matches={restrictionAssessment.matches}
+              selectedLabels={selectedRestrictionLabels}
+              summary={restrictionSummary}
+              tone={restrictionAssessment.tone}
+            />
+          ) : null}
+        </ComponentErrorBoundary>
 
-        {!analysisResult ? (
-          <ResultCardSkeleton />
-        ) : (
-          <ProductSuggestionsCard suggestions={displayedSuggestions} />
-        )}
+        <ComponentErrorBoundary fallbackTitle={t('Suggestions temporarily unavailable')}>
+          {!analysisResult ? (
+            <ResultCardSkeleton />
+          ) : (
+            <ProductSuggestionsCard suggestions={displayedSuggestions} />
+          )}
+        </ComponentErrorBoundary>
 
         {renderedPremiumGuidance ? (
           <PremiumGuidanceCard guidance={renderedPremiumGuidance} />
@@ -1160,6 +1246,13 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
             <ResultCardSkeleton />
           ) : ingredientAnalysis.explainedIngredients.length > 0 ? (
             <>
+              <IngredientConstellation
+                ingredients={ingredientAnalysis.explainedIngredients.map((i) => ({
+                  text: i.displayName,
+                  isAllergen: i.risk === 'high-risk',
+                  isAdditive: i.risk === 'caution',
+                }))}
+              />
               <View style={styles.ingredientWrap}>
                 {ingredientAnalysis.explainedIngredients.map((ingredient) => (
                   <Pressable
@@ -1302,6 +1395,10 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
           </Text>
         ) : null}
       </View>
+
+      <ComponentErrorBoundary fallbackTitle={t('Portion adjuster unavailable')}>
+        <ServingSizeAdjuster nutrition={product?.nutrition} />
+      </ComponentErrorBoundary>
 
       {environmentalInsight ? <EnvironmentalImpactCard insight={environmentalInsight} /> : null}
 

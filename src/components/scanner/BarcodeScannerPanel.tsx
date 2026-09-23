@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useI18n } from '../AppLanguageProvider';
 import { useAppTheme } from '../AppThemeProvider';
+import LivingReticle, { type ReticleStatus } from './LivingReticle';
 
 const SUPPORTED_BARCODE_TYPES = [
   'ean13',
@@ -32,6 +33,8 @@ type BarcodeScannerPanelProps = {
   overlayActionLabel?: string;
   onOverlayActionPress?: () => void;
   overlayLabel: string;
+  reticleStatus?: ReticleStatus;
+  barcodeBox?: { origin: { x: number; y: number }; size: { width: number; height: number } };
 };
 
 function BarcodeScannerPanel({
@@ -45,6 +48,8 @@ function BarcodeScannerPanel({
   overlayActionLabel,
   onOverlayActionPress,
   overlayLabel,
+  reticleStatus,
+  barcodeBox,
 }: BarcodeScannerPanelProps) {
   const { t } = useI18n();
   const { colors } = useAppTheme();
@@ -78,10 +83,12 @@ function BarcodeScannerPanel({
           </View>
 
           <View style={[styles.scanFrame, { height: frameHeight }]}>
-            <View style={[styles.corner, styles.cornerTopLeft]} />
-            <View style={[styles.corner, styles.cornerTopRight]} />
-            <View style={[styles.corner, styles.cornerBottomLeft]} />
-            <View style={[styles.corner, styles.cornerBottomRight]} />
+            <LivingReticle
+              status={reticleStatus ?? (isActive ? 'searching' : 'searching')}
+              barcodeBox={barcodeBox}
+              defaultWidth={240}
+              defaultHeight={frameHeight}
+            />
           </View>
 
           <View style={styles.overlayBottom}>
