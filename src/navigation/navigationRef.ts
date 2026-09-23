@@ -39,7 +39,7 @@ export function openMainRoute(route: MainNavigationRoute) {
 
   const rootState = rootNavigationRef.getRootState();
 
-  if (rootState.routes.some((entry) => entry.name === route)) {
+  if (rootState?.routes.some((entry) => entry.name === route)) {
     rootNavigationRef.dispatch(StackActions.popTo(route));
     return;
   }
