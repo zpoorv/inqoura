@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import FoodOrbitHero from '../../components/home/FoodOrbitHero';
 import ActionCard from '../../components/ActionCard';
 import FeaturePageLayout from '../../components/FeaturePageLayout';
 import HeroCard from '../../components/HeroCard';
@@ -51,6 +52,9 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [recentEntry, setRecentEntry] = useState<ScanHistoryEntry | null>(
     cachedHistoryEntries?.[0] ?? null
   );
+  const [historyList, setHistoryList] = useState<ScanHistoryEntry[]>(
+    cachedHistoryEntries ?? []
+  );
   const [profileName, setProfileName] = useState(cachedShoppingProfile?.name || 'You');
   const [isPremium, setIsPremium] = useState(
     (cachedPremiumEntitlement ?? createDefaultPremiumEntitlement()).isPremium
@@ -80,6 +84,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
         }
 
         setRecentEntry(historyEntries[0] ?? null);
+        setHistoryList(historyEntries);
         setIsPremium((premiumEntitlement ?? createDefaultPremiumEntitlement()).isPremium);
         setProfileName(shoppingProfile.name || 'You');
         setHasLoadedHome(true);
@@ -103,6 +108,20 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }, [hasLoadedHome, hasMeasuredReady])
   );
 
+  const handleOpenDuel = () => {
+    if (historyList.length >= 2) {
+      navigation.navigate('ProductDuel', {
+        productA: historyList[0].product,
+        productB: historyList[1].product,
+      });
+    } else {
+      Alert.alert(
+        t('Duel Needs Two Items'),
+        t('Scan at least two products to compare them head-to-head in the Duel Arena!')
+      );
+    }
+  };
+
   return (
     <FeaturePageLayout
       eyebrow={t('Coach')}
@@ -110,6 +129,17 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       title={t('Ready for your next product?')}
     >
       <ScreenReveal delayMs={10}>
+        <FoodOrbitHero
+          profileName={profileName}
+          totalScans={historyList.length}
+          cleanStreakDays={Math.max(1, Math.min(30, historyList.length * 2))}
+          onOpenScanner={() => navigation.navigate('Scanner')}
+          onOpenContinuousScanner={() => navigation.navigate('ContinuousScanner')}
+          onOpenDuel={handleOpenDuel}
+        />
+      </ScreenReveal>
+
+      <ScreenReveal delayMs={25}>
         <HeroCard
           eyebrow={t(authSession.status === 'authenticated' ? 'Signed in' : 'Guest mode')}
           subtitle={

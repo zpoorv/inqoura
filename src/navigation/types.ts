@@ -30,6 +30,13 @@ export type RootStackParamList = {
       }
     | undefined;
   SupportSettings: undefined;
+  ContinuousScanner: undefined;
+  ProductDuel:
+    | {
+        productA: ResolvedProduct;
+        productB: ResolvedProduct;
+      }
+    | undefined;
   Result: {
     barcode: string;
     barcodeType?: string | null;

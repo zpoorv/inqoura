@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '../AppLanguageProvider';
 import { useAppTheme } from '../AppThemeProvider';
+import { triggerSelectionHaptic } from '../../utils/haptics';
 import type { MainNavigationRoute } from '../../navigation/navigationRef';
 
 type BottomMenuBarProps = {
@@ -77,6 +78,7 @@ export default function BottomMenuBar({
               hitSlop={10}
               key={item.route}
               onPress={() => {
+                triggerSelectionHaptic();
                 if (item.route !== activeRoute) {
                   onSelectRoute(item.route);
                 }

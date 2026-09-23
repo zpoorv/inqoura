@@ -1157,10 +1157,16 @@ export default function ResultScreen({ navigation, route }: ResultScreenProps) {
                   <Text style={styles.savedActionText}>{t('Scan another')}</Text>
                 </Pressable>
                 <Pressable
+                  onPress={() => navigation.navigate('Scanner')}
+                  style={styles.savedActionChip}
+                >
+                  <Text style={styles.savedActionText}>{t('⚔️ Duel Item')}</Text>
+                </Pressable>
+                <Pressable
                   onPress={() => setIsReportModalVisible(true)}
                   style={styles.savedActionChip}
                 >
-                  <Text style={styles.savedActionText}>{t('Report Wrong Info')}</Text>
+                  <Text style={styles.savedActionText}>{t('Report')}</Text>
                 </Pressable>
               </View>
             </>

@@ -23,6 +23,8 @@ import PremiumScreen from '../screens/account/PremiumScreen';
 import ResultScreen from '../screens/core/ResultScreen';
 import ResetPasswordScreen from '../screens/account/ResetPasswordScreen';
 import ScannerScreen from '../screens/core/ScannerScreen';
+import ContinuousScannerScreen from '../screens/core/ContinuousScannerScreen';
+import ProductDuelScreen from '../screens/core/ProductDuelScreen';
 import { hydrateAuthSession } from '../services/authService';
 import { AuthServiceError } from '../services/authHelpers';
 import {
@@ -363,6 +365,16 @@ export default function RootNavigator() {
                   name="Scanner"
                   component={ScannerScreen}
                   options={{ title: t('Scan Barcode') }}
+                />
+                <Stack.Screen
+                  name="ContinuousScanner"
+                  component={ContinuousScannerScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="ProductDuel"
+                  component={ProductDuelScreen}
+                  options={{ title: t('Product Duel Arena') }}
                 />
                 <Stack.Screen
                   name="History"

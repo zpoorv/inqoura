@@ -1,8 +1,10 @@
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -439,6 +441,19 @@ export default function ScannerScreen({ navigation, route }: ScannerScreenProps)
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
+            <View style={styles.hudModeRow}>
+              <View style={styles.modePillActive}>
+                <Text style={styles.modeTextActive}>{t('Single Scan')}</Text>
+              </View>
+              <Pressable
+                onPress={() => navigation.navigate('ContinuousScanner')}
+                style={styles.modePillInactive}
+              >
+                <Ionicons name="cart-outline" size={14} color={colors.textMuted} style={{ marginRight: 4 }} />
+                <Text style={styles.modeTextInactive}>{t('Basket Sweep')}</Text>
+              </Pressable>
+            </View>
+
             {hasPermission ? (
               <BarcodeScannerPanel
                 cameraKey={cameraKey}
@@ -531,6 +546,43 @@ const createStyles = (
   typography: ReturnType<typeof useAppTheme>['typography']
 ) =>
   StyleSheet.create({
+    hudModeRow: {
+      flexDirection: 'row',
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+      borderRadius: 999,
+      padding: 4,
+      marginBottom: 12,
+      gap: 4,
+    },
+    modePillActive: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: 16,
+      paddingVertical: 7,
+      borderRadius: 999,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    modeTextActive: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    modePillInactive: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: 999,
+    },
+    modeTextInactive: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
     backgroundGlow: {
       backgroundColor: colors.primaryMuted,
       borderBottomLeftRadius: 40,
