@@ -180,8 +180,8 @@ The working tree currently has uncommitted modifications across 8 files:
 ## 7. Recommendations & Action Plan
 
 ### Priority 1: High (Pre-Launch Stabilization)
+- **Unit Tests for Core Pure Logic [COMPLETED]:** Automated tests implemented in `scripts/test_domain_logic.mjs` running via `npm test` verifying allergen boundary matching, health score Unicode parsing, oil classification, and batch chunking.
 - **Commit Current RevenueCat & Auth Fixes:** Verify and stage the pending changes in `revenueCatService.ts`, `PremiumScreen.tsx`, and session services.
-- **Introduce Unit Tests for Core Pure Logic:** Set up Jest for non-UI utilities (`productHealthScore.test.ts`, `restrictionMatching.test.ts`, `householdFit.test.ts`). This yields high test coverage with minimal setup overhead.
 
 ### Priority 2: Medium (Code Health & Maintenance)
 - **Decompose `ResultScreen.tsx`:** Extract inline sub-sections (Action bar, Verdict summary card, Nutrition breakdown grid, Household alert rows) into dedicated components under `src/components/result/`.

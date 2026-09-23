@@ -8,6 +8,26 @@ This document catalogs the architectural, algorithmic, security, reliability, an
 
 ---
 
+## Remediation Status Tracker
+
+| Issue ID | Description | Severity | Status | Resolution Note |
+| :--- | :--- | :--- | :--- | :--- |
+| **1.1** | Naive Allergen Substring Matching | High | **RESOLVED** | Word boundary regex (`matchKeywordToken`) & negation filtering |
+| **1.2** | Non-English Allergen Dictionaries | High | **RESOLVED** | European translations & Open Food Facts tags added |
+| **1.3** | Recognizable Ingredient Scoring | High | **RESOLVED** | Unicode property escapes (`\p{L}`) implemented |
+| **1.4** | Food vs Non-Food Oil Misclassification | High | **RESOLVED** | Culinary oils separated from cosmetic/mechanical oils |
+| **2.1** | Guest User Subscription Lockout | Med | Open | In review for upcoming sprint |
+| **2.2** | AdMob Consent Management | Med | Open | Consent revoking screen planned |
+| **2.3** | AdMob Test Unit Fallbacks | Low | Open | Environment assertions recommended |
+| **3.1** | Firestore 500 Batch Limit on Deletions | High | **RESOLVED** | Chunked batches (<= 500 ops) in `cloudUserDataService.ts` |
+| **3.2** | Firestore Read Amplification in Rules | Med | In Progress | Custom claim migration script provided |
+| **3.3** | Catalog Search Direct Firestore Reads | Med | Open | Algolia client connection planned |
+| **3.5** | Open Food Facts User-Agent Header | Low | **RESOLVED** | Compliant User-Agent attached in `src/utils/http.ts` |
+| **4.1** | File Length Guideline Violations | Med | In Progress | Incremental screen decomposition underway |
+| **Web** | Web Preview Metro Bundling Failure | High | **RESOLVED** | Mock for AdMob and single-page app output in `app.json` |
+
+---
+
 ## 1. Critical Health, Safety & Algorithmic Flaws (High Risk)
 
 ### 1.1 Naive Allergen Substring Matching & False Positives

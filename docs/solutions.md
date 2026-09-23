@@ -335,24 +335,26 @@ Create targeted unit test suites for all pure algorithmic functions:
 
 ---
 
-## Execution Checklist
+## Execution Status & Progress
 
-- [ ] **Sprint 1: Safety & Monetization (Days 1–2)**
-  - [ ] Implement token boundary and negation matching in `restrictionMatching.ts`.
+- [x] **Safety & Algorithmic Accuracy (Completed)**
+  - [x] Implement token boundary and negation matching in `restrictionMatching.ts` (prevents "eggplant" triggering "egg", handles "-free" negations).
+  - [x] Support Unicode letters (`\p{L}`) in health score recognizable ingredient calculation.
+  - [x] Add European language keywords and Open Food Facts taxonomy tags to allergen definitions.
+  - [x] Distinguish culinary/edible oils from non-food or cosmetic oils in food classification.
+- [x] **Backend & Cloud Resilience (Completed)**
+  - [x] Chunk Firestore batch writes (<= 500 operations) in `cloudUserDataService.ts`.
+  - [x] Add compliant `User-Agent` header (`Inqoura-App/1.1.1`) to Open Food Facts API requests.
+- [x] **Cross-Platform & Web Support (Completed)**
+  - [x] Configure `app.json` web output to `"single"` for React Navigation SPA mode.
+  - [x] Create web mock in `src/mocks/googleMobileAdsMock.ts` and Metro interceptor in `metro.config.js` to prevent web bundler hangs.
+- [x] **Automated Domain Testing (Completed)**
+  - [x] Implement automated test suite in `scripts/test_domain_logic.mjs` run via `npm test`.
+  - [x] Add automated test coverage for allergen boundary matching, health score Unicode parsing, oil classification, and batch chunking.
+- [ ] **Follow-Up Engineering Sprints (In Progress)**
   - [ ] Update `loadCurrentPremiumEntitlement()` to unlock guest RevenueCat purchases.
-  - [ ] Chunk Firestore batches in `deleteRemoteUserData` and `replaceRemoteScanHistory`.
-  - [ ] Add OpenFoodFacts `User-Agent` header in `http.ts`.
-- [ ] **Sprint 2: Localization & Code Health (Days 3–4)**
-  - [ ] Support Unicode letters (`\p{L}`) in health score recognizable calculation.
-  - [ ] Add European language keywords to allergen definitions.
   - [ ] Replace deep AsyncStorage imports across `src/services/` and delete `async-storage.d.ts`.
   - [ ] Add safety null check in `HistoryScreen.tsx`.
-- [ ] **Sprint 3: Refactoring & Testing (Days 5–6)**
-  - [ ] Decompose `ResultScreen.tsx` into `src/components/result/`.
-  - [ ] Hoist `MetricChip` styles to module scope.
-  - [ ] Set up Jest with `jest-expo`.
-  - [ ] Implement unit test suites for `restrictionMatching` and `productHealthScore`.
-- [ ] **Sprint 4: Observability & Store Compliance (Day 7)**
+  - [ ] Decompose `ResultScreen.tsx` into modular components under `src/components/result/`.
   - [ ] Add AdMob privacy options button in settings.
   - [ ] Wire remote crash reporting adapter in `appMonitoringService.ts`.
-  - [ ] Compact scan history AsyncStorage payload.

@@ -43,7 +43,6 @@ play-service-account.json
 .firebase/
 
 # local planning/docs
-docs/
 .tmp*
 captures/
 screenshots/

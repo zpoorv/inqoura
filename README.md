@@ -1,225 +1,139 @@
 # Inqoura
 
-Inqoura is an Expo React Native app for faster packaged-food decisions.
+Inqoura is a mobile packaged-food decision assistant and ingredient scanner built with React Native and Expo. It empowers shoppers to quickly evaluate food products for nutritional quality, dietary safety, allergen compatibility, and multi-member household preferences.
 
-The current app is built around a scanner-first flow:
+---
 
-- `Home` for the next best action
-- `Scan` for barcode lookup
-- `Result` for verdict, score, trust, and ingredient guidance
-- `History` for reopen/search/delete
-- `Account` for sign-in, premium, language, appearance, notifications, and support
+## Key Features
 
-## Current Product Shape
+- **Barcode & Label Scanning:** Instant camera barcode lookup via Open Food Facts with on-device OCR label fallback.
+- **Decision Engine & Health Scoring:** Algorithmic verdict, nutritional scoring (0–100), and processing classification.
+- **Allergen & Restriction Matching:** Word-boundary tokenization and negation filtering across 12 languages to reliably identify allergens without false alarms.
+- **Household Profiles:** Multi-member dietary profile compatibility to check food safety for the entire family.
+- **History & Offline Support:** Persistent scan history with offline caching and remote Firebase sync.
+- **Monetization & Billing:** Free-tier ad integration via Google Mobile Ads (AdMob) and premium subscription entitlements via RevenueCat.
+- **Admin Operations:** Standalone local administration panel (`admin_panel/`) for product overrides and catalog audits.
 
-### Core mobile experience
-
-- Barcode scanning with camera
-- Product lookup with shared product data and overrides
-- Result screen with:
-  - score and decision verdict
-  - trust and confidence signals
-  - ingredient highlights
-  - household fit
-  - product timeline and suggestions
-- Saved scan history with reopen and cleanup tools
-- Guest-first usage with optional account sign-in
-
-### Account and personalization
-
-- Email/password login
-- Google sign-in
-- Password reset
-- Language switching
-- Theme mode and premium app looks
-- Share-card style preferences
-- Notification settings
-- Household settings
-
-### Premium
-
-Premium currently centers on:
-
-- deeper result guidance
-- unlimited result-card exports
-- extra share-card styles
-- premium app looks
-- premium history insight tools
-- billing and restore flows through RevenueCat
-
-### Notifications
-
-- Local history-based notifications
-- In-app notification center with unread indicator
-
-### Admin and operations
-
-- Local `admin_panel/` for product/admin operations
-- Firebase-backed profile, history, config, and override data
+---
 
 ## Tech Stack
 
-- Expo SDK 54
-- React Native 0.81
-- React 19
-- TypeScript
-- Firebase Auth + Firestore
-- RevenueCat
-- Google Mobile Ads
-- Expo Notifications
+* **Mobile Framework:** [Expo](https://expo.dev) SDK 54 / [React Native](https://reactnative.dev) 0.81.5
+* **UI & Component Layer:** React 19.1.0 (Functional components with hooks, React Compiler enabled)
+* **Language:** TypeScript
+* **State Management:** Modular, lightweight custom hook stores (`src/store/`)
+* **Backend & Auth:** Firebase Auth (Email/Google), Cloud Firestore, Cloud Storage
+* **Monetization:** RevenueCat (Google Play Billing), Google Mobile Ads
+* **Catalog:** Open Food Facts REST API
+
+---
 
 ## Requirements
 
-- Node 20+
-- Android SDK / Gradle for local release builds
-- Firebase project configured for the app
-- RevenueCat project configured for subscriptions
-- `adb` if you want to install or test on a connected Android device
+* **Node.js:** `v20.x` or higher
+* **Java Development Kit:** JDK 17
+* **Android Studio:** Android SDK Platform 34+, Android Virtual Device (AVD) or physical device
+* **npm:** v9 or v10
 
-## Install
+---
 
+## Quick Start
+
+### 1. Install Dependencies
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
 
-## Environment Setup
-
-Create a local env file:
-
+### 2. Environment Setup
+Create a local environment file from the template:
 ```bash
 cp .env.example .env.local
 ```
+Fill in the configuration keys in `.env.local` (Firebase, RevenueCat, AdMob).
 
-Set the values used by the current app:
+### 3. Run the App
 
-- `EXPO_PUBLIC_FIREBASE_API_KEY`
-- `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
-- `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
-- `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
-- `EXPO_PUBLIC_FIREBASE_APP_ID`
-- `EXPO_PUBLIC_FIREBASE_ANDROID_CLIENT_ID`
-- `EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID`
-- `EXPO_PUBLIC_FIREBASE_IOS_CLIENT_ID` optional
-- `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
-- `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` optional
-- `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID`
-- `EXPO_PUBLIC_ADMOB_REWARDED_UNIT_ID`
-- `EXPO_PUBLIC_ADMOB_NATIVE_HOME_UNIT_ID`
-- `EXPO_PUBLIC_ADMOB_NATIVE_HISTORY_UNIT_ID`
-- `EXPO_PUBLIC_ADMOB_NATIVE_SEARCH_UNIT_ID`
-
-## Running The App
-
-### Start Expo
-
-```bash
-npm start
-```
-
-### Android native run
-
+#### Android (Primary Target)
 ```bash
 npm run android
 ```
 
-### Web
-
+#### Web Preview
 ```bash
 npm run web
+# Or with a fresh Metro cache:
+npx expo start -c --web
 ```
+*Note: The web target includes automatic mocks for native modules (e.g. AdMob) via `metro.config.js`.*
 
-Web is only useful for rough UI checks. The real app target is Android.
-
-## Admin Panel
-
-Run the local admin panel:
-
+#### Admin Panel
 ```bash
 npm run admin-panel
 ```
+Access at `http://127.0.0.1:4173/login.html`.
 
-Then open:
+---
 
-```text
-http://127.0.0.1:4173/login.html
+## Testing & Quality Assurance
+
+Run the automated domain logic test suite:
+```bash
+npm test
 ```
+Run TypeScript static type checks:
+```bash
+npx tsc --noEmit
+```
+
+---
 
 ## Release Builds
 
-Release APK:
+Build signed Android production artifacts locally:
 
 ```bash
+# Release APK (for internal QA testing)
 npm run android:apk:release
-```
 
-Release AAB:
-
-```bash
+# Release AAB (for Google Play Console submission)
 npm run android:aab
 ```
 
-Artifacts are written to:
-
+Outputs are generated in:
 - `android/app/build/outputs/apk/release/app-release.apk`
 - `android/app/build/outputs/bundle/release/app-release.aab`
 
-## Launch Docs
+---
 
-Use these as the current source of truth for Android release work:
+## Documentation Index
 
-- [`docs/ANDROID_PLAY_RELEASE_CHECKLIST.md`](/home/zpoorv/Projects/ingredient-scanner/docs/ANDROID_PLAY_RELEASE_CHECKLIST.md)
-- [`docs/ANDROID_PLAY_LAUNCH_RUNBOOK.md`](/home/zpoorv/Projects/ingredient-scanner/docs/ANDROID_PLAY_LAUNCH_RUNBOOK.md)
-- [`docs/PLAY_STORE_SETUP.md`](/home/zpoorv/Projects/ingredient-scanner/docs/PLAY_STORE_SETUP.md)
+All project documentation, guides, and audit roadmaps are organized under [`docs/`](docs/):
 
-Security and production hardening docs:
+### Engineering & Architecture
+- **[Technical Architecture Guide](docs/ARCHITECTURE.md):** System diagrams, state management, directory responsibilities, and domain logic.
+- **[Development Guide](docs/DEVELOPMENT_GUIDE.md):** Complete developer handbook covering environment setup, testing, and coding standards.
+- **[AI Agent Guidelines](docs/AGENTS.md):** Pair programming rules, component guidelines, and coding conventions.
 
-- [`SECURITY.md`](/home/zpoorv/Projects/ingredient-scanner/SECURITY.md)
-- [`SECURITY_HARDENING.md`](/home/zpoorv/Projects/ingredient-scanner/SECURITY_HARDENING.md)
-- [`PLAY_INTEGRITY_PLAN.md`](/home/zpoorv/Projects/ingredient-scanner/PLAY_INTEGRITY_PLAN.md)
-- [`FIREBASE_GITHUB_SECURITY_CHECKLIST.md`](/home/zpoorv/Projects/ingredient-scanner/FIREBASE_GITHUB_SECURITY_CHECKLIST.md)
+### Operations & Release
+- **[Android Play Launch Runbook](docs/ANDROID_PLAY_LAUNCH_RUNBOOK.md):** End-to-end guide for Play Store preparation, signing, and staged rollout.
+- **[Android Play Release Checklist](docs/ANDROID_PLAY_RELEASE_CHECKLIST.md):** Pre-flight release verification checklist.
+- **[UI Bug Sweep Checklist](docs/UI_BUG_SWEEP_CHECKLIST.md):** Mobile viewport and layout QA checklist.
+
+### Security & Legal
+- **[Security Policy & Production Hardening](docs/SECURITY.md):** Vulnerability reporting, Firestore rules, custom claims, and Play Integrity.
+- **[Privacy Policy](docs/PRIVACY_POLICY.md):** Complete user privacy and data processing policy.
+- **[Terms of Service](docs/TERMS_OF_SERVICE.md):** Terms of use and liability disclosures.
+
+### Audits & Roadmaps
+- **[Project Analysis Report](docs/report.md):** Executive technical report and audit summary.
+- **[Weaknesses & Vulnerabilities Audit](docs/problems.md):** Catalog of identified project weaknesses with resolution statuses.
+- **[Remediation Plan](docs/solutions.md):** Actionable engineering roadmap and execution progress.
+
+---
 
 ## Privacy Pages
 
-Public web pages live in:
-
-- `privacy/index.html`
-- `privacy/delete-account.html`
-- `privacy/terms.html`
-
-Expected hosted URLs:
-
-- `https://inqoura.app/privacy`
-- `https://inqoura.app/delete-account`
-- `https://inqoura.app/terms`
-
-## Project Structure
-
-```text
-.
-|-- admin_panel/
-|-- docs/
-|-- privacy/
-|-- src/
-|   |-- components/
-|   |-- constants/
-|   |-- models/
-|   |-- navigation/
-|   |-- screens/
-|   |   |-- account/
-|   |   |-- core/
-|   |   `-- support/
-|   |-- services/
-|   |-- store/
-|   |-- types/
-|   `-- utils/
-|-- App.tsx
-|-- app.json
-`-- package.json
-```
-
-## Notes
-
-- The app is Expo-first and React Native only.
-- Firebase config can be public in the client; trust must come from rules, claims, App Check, and production separation.
-- Android release work should use the launch checklist and runbook above.
+Public web compliance pages live in `privacy/`:
+- `privacy/index.html` (Privacy Policy)
+- `privacy/delete-account.html` (Data & Account Deletion)
+- `privacy/terms.html` (Terms of Service)
